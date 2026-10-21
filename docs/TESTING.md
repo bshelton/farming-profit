@@ -34,6 +34,8 @@ Confirm `FP diagnostic session started: format=2` appears after startup. Preserv
 
 ## Follow-up detection audit
 
+Live comparison at 18:16–18:18: Hosidius recorded nine inferred ranarr herbs (including the final pick), one seed and one bottomless compost use. At the Varlamore patch (1581,3094), Pick was recognized, but a `LOADING` transition while approaching the patch reset the context. Seven normal XP drops plus the final 57-XP drop were skipped. Ordinary region loading now preserves action context and XP/inventory baselines; logout, reconnect and world-hop transitions still reset them. Reconciliation retains the account, distance and expiry checks. Added lifecycle regression checks and an eight-herb XP trace test. Retest by approaching this patch from the same direction; the corrected live result is pending.
+
 Code inspection found and addressed these additional cases:
 
 - Planting costs depended on same-tick XP, despite deferred planting XP. A planting interaction plus visible seed/sapling/fragment consumption now records the cost without XP.

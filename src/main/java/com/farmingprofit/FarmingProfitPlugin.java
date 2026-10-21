@@ -137,10 +137,16 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onGameStateChanged(GameStateChanged event)
     {
-        if (event.getGameState() != GameState.LOGGED_IN)
+        if (event.getGameState() == GameState.LOADING)
         {
-            // Region loading is normal during a teleport; keep pending consumption across it.
-            if (event.getGameState() != GameState.LOADING) { travel.clear(); }
+            // Crossing a map boundary is not a logout. Keep the clicked world point and
+            // XP/inventory baselines so an in-progress harvest survives the scene rebuild.
+            // Reconciliation still requires the same account, proximity and unexpired context.
+            if (diagnosticsEnabled()) { log.debug("FP region loading: preserving action={} herb={} pendingXp={}", action, herbPatch, tickXp); }
+        }
+        if (resetsTracking(event.getGameState()))
+        {
+            travel.clear();
             if (diagnosticsEnabled()) { log.debug("FP reset: state={} action={} pendingXp={}", event.getGameState(), action, tickXp); }
             resetSignals();
             if (event.getGameState() == GameState.LOGIN_SCREEN)
@@ -149,6 +155,11 @@ public class FarmingProfitPlugin extends Plugin
                 storageStatus = "Log in to load your farming history."; refresh();
             }
         }
+    }
+
+    static boolean resetsTracking(GameState state)
+    {
+        return state != GameState.LOGGED_IN && state != GameState.LOADING;
     }
 
     private void loadAccount(String key)
