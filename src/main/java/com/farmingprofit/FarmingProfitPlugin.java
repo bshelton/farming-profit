@@ -2,9 +2,6 @@ package com.farmingprofit;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
 import java.io.Reader;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -109,11 +106,7 @@ public class FarmingProfitPlugin extends Plugin
         SwingUtilities.invokeLater(() -> {
             if (!enabled) { return; }
             panel = new FarmingProfitPanel(this);
-            BufferedImage icon = new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = icon.createGraphics();
-            g.setColor(new Color(169, 219, 131));
-            g.fillOval(3, 4, 9, 6); g.fillOval(12, 1, 9, 7); g.fillRect(11, 6, 2, 15); g.dispose();
-            navigation = NavigationButton.builder().tooltip("Farming Profit").icon(icon).priority(7).panel(panel).build();
+            navigation = NavigationButton.builder().tooltip("Farming Profit").icon(BrandAssets.MARK).priority(7).panel(panel).build();
             toolbar.addNavigation(navigation);
         });
         clientThread.invoke(() -> { resetSignals(); refresh(); });

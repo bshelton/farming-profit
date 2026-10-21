@@ -52,7 +52,8 @@ final class FarmingProfitPanel extends PluginPanel
         JPanel heading = new JPanel(new BorderLayout(4, 0));
         heading.setOpaque(false);
         JLabel title = new JLabel("Farming Profit");
-        title.setFont(BODY.deriveFont(Font.BOLD, 15)); title.setForeground(GOLD);
+        title.setIcon(new ImageIcon(BrandAssets.MARK)); title.setIconTextGap(6);
+        title.setFont(BODY.deriveFont(Font.BOLD, 14)); title.setForeground(GOLD);
         heading.add(title, BorderLayout.CENTER);
         JButton settings = button("Settings");
         settings.setFont(BODY.deriveFont(10f));
@@ -145,6 +146,9 @@ final class FarmingProfitPanel extends PluginPanel
         status.setVisible(ready);
         if (data.active == null)
         {
+            JLabel illustration = new JLabel(BrandAssets.HARVEST, SwingConstants.CENTER);
+            illustration.getAccessibleContext().setAccessibleName("Herbs and gold coins in a harvest crate");
+            current.add(fit(illustration)); current.add(Box.createVerticalStrut(12));
             JLabel title = text(ready ? "Ready for your next run" : "Waiting for your account");
             title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
             JLabel hint = text(ready ? "Harvest or plant a patch to begin automatically." : message);
