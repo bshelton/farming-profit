@@ -5,6 +5,42 @@ import static org.junit.Assert.*;
 
 public class HerbHarvestTest
 {
+    @Test public void replaysConfirmedThirteenHerbFaladorHarvest()
+    {
+        // 2026-10-21 live trace, verified by the user's sack increase of 13.
+        int[] deltas = {33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 33, 34, 60};
+        double bonus = HerbHarvest.patchMultiplier(new net.runelite.api.coords.WorldPoint(3058, 3311, 0), true);
+        int total = 0;
+        for (int i = 0; i < deltas.length; i++)
+        {
+            total += HerbHarvest.RANARR.missingCount(deltas[i], 1, 0, i == deltas.length - 1, bonus);
+        }
+        assertEquals(13, total);
+        // The completion bonus is not multiplied by the Falador harvest bonus.
+        assertEquals(1, HerbHarvest.RANARR.inferredCount(60, 1, true, bonus));
+        assertEquals(0, HerbHarvest.RANARR.missingCount(60, 1, 1, true, bonus));
+        assertEquals(2, HerbHarvest.RANARR.inferredCount(67, 1, false, bonus));
+    }
+    @Test public void faladorBonusRequiresBothLocationAndDiary()
+    {
+        net.runelite.api.coords.WorldPoint falador = new net.runelite.api.coords.WorldPoint(3058, 3311, 0);
+        assertEquals(1, HerbHarvest.patchMultiplier(falador, false), 0);
+        assertEquals(1, HerbHarvest.patchMultiplier(new net.runelite.api.coords.WorldPoint(2670, 3374, 0), true), 0);
+        assertEquals(1, HerbHarvest.patchMultiplier(null, true), 0);
+        assertEquals(0, HerbHarvest.RANARR.inferredCount(34, 1, false, 1));
+    }
+    @Test public void inventoryTabKeepsContextButItemActionsDoNot()
+    {
+        assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP,
+            net.runelite.api.gameval.InterfaceID.Toplevel.STONE3, "inventory"));
+        assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP,
+            net.runelite.api.gameval.InterfaceID.ToplevelOsrsStretch.STONE3, "inventory"));
+        assertFalse(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP,
+            net.runelite.api.gameval.InterfaceID.Inventory.ITEMS, "teleport"));
+        assertFalse(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP,
+            net.runelite.api.gameval.InterfaceID.Inventory.ITEMS, "inventory"));
+    }
+
     @Test public void replaysObservedArdougneRanarrXpIncludingFinalPick()
     {
         // Actual 2026-10-21 trace: eleven regular picks and one 57-XP final pick.

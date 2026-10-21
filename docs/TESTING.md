@@ -16,6 +16,8 @@ Diagnostic retest at 18:04–18:05 identified two further defects: the herb and 
 
 Herb XP references: [Ranarr seed](https://oldschool.runescape.wiki/w/Ranarr_seed), [herb patches](https://oldschool.runescape.wiki/w/Herb_patch), [Huasca plant](https://oldschool.runescape.wiki/w/Huasca_(plant)), and [Torstol seed](https://oldschool.runescape.wiki/w/Torstol_seed). RuneLite's skill calculator values used previously were not per-herb harvesting XP. Harvest and completion XP are now separate fields.
 
+At 18:08 the user confirmed 13 ranarr herbs at Falador (3058,3311). The trace contains twelve alternating 33/34 XP drops and a final 60 XP drop. Opening the Inventory tab (`CC_OP`, option `inventory`) had cleared harvest context before the first drop. Tab navigation is now preserved only for recognized game-frame tab operations; inventory item actions still cancel context. Falador's 10% harvest-XP bonus is applied only in the Falador patch region with the Medium Diary complete; deferred completion XP remains separate. Replaying this confirmed trace produces 13 herbs. Corrected live detection, diary state and final patch-state timing remain to be validated after restart.
+
 ## Diagnostic capture
 
 The development launcher now enables diagnostics automatically via a development-only system property. Normal plugin installations retain the optional Farming diagnostics setting. Logging stays at DEBUG and is event-driven, not per frame or idle tick.

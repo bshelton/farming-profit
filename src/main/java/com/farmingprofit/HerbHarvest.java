@@ -1,6 +1,7 @@
 package com.farmingprofit;
 
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.coords.WorldPoint;
 
 /** Patch states from RuneLite's farming tracker; harvest/completion XP from OSRS herb data.
  * XP provides an explicitly labelled estimate, never a claim to read sack contents. */
@@ -21,6 +22,13 @@ enum HerbHarvest
     LANTADYME(93, ItemID.UNIDENTIFIED_LANTADYME, 151.5, 134.5),
     DWARF_WEED(100, ItemID.UNIDENTIFIED_DWARF_WEED, 192, 170.5),
     TORSTOL(107, ItemID.UNIDENTIFIED_TORSTOL, 224.5, 199.5);
+
+    // FarmingWorld identifies the Falador allotment/herb area in region 12083, north of Port Sarim.
+    static double patchMultiplier(WorldPoint patch, boolean faladorMediumComplete)
+    {
+        return faladorMediumComplete && patch != null && patch.getRegionID() == 12083
+            && patch.getY() >= 3272 ? 1.1 : 1;
+    }
 
     final int start;
     final int itemId;
@@ -51,7 +59,11 @@ enum HerbHarvest
     }
     int missingCount(int delta, double outfitMultiplier, int observed, boolean depleted)
     {
-        return Math.max(0, inferredCount(delta, outfitMultiplier, depleted) - observed);
+        return missingCount(delta, outfitMultiplier, observed, depleted, 1);
+    }
+    int missingCount(int delta, double outfitMultiplier, int observed, boolean depleted, double patchMultiplier)
+    {
+        return Math.max(0, inferredCount(delta, outfitMultiplier, depleted, patchMultiplier) - observed);
     }
     int inferredCount(int delta, double outfitMultiplier)
     {
@@ -59,8 +71,13 @@ enum HerbHarvest
     }
     int inferredCount(int delta, double outfitMultiplier, boolean depleted)
     {
+        return inferredCount(delta, outfitMultiplier, depleted, 1);
+    }
+    int inferredCount(int delta, double outfitMultiplier, boolean depleted, double patchMultiplier)
+    {
+        if (patchMultiplier != 1 && patchMultiplier != 1.1) { return 0; }
         if (delta <= 0 || outfitMultiplier < 1 || outfitMultiplier > 1.0251) { return 0; }
-        double perHerb = xp * outfitMultiplier;
+        double perHerb = xp * outfitMultiplier * patchMultiplier;
         // The final pick also awards deferred planting XP. Only subtract it when the patch is empty.
         double harvestXp = delta - (depleted ? completionXp * outfitMultiplier : 0);
         int count = (int) Math.round(harvestXp / perHerb);

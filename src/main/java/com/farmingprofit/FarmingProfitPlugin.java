@@ -20,6 +20,7 @@ import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
@@ -229,7 +230,7 @@ public class FarmingProfitPlugin extends Plugin
         String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
         MenuAction type = event.getMenuAction();
         // Dismissing a menu, examining, or selecting an item does not stop server-side harvesting.
-        if (preservesFarmingContext(type)) { return; }
+        if (preservesFarmingContext(type, event.getParam1(), option)) { return; }
         if (type != MenuAction.WIDGET_CONTINUE)
         {
             travel.clear();
@@ -288,8 +289,21 @@ public class FarmingProfitPlugin extends Plugin
             }
         }
         if (diagnosticsEnabled() && !action.isEmpty())
-        { log.debug("FP context cancelled: previousAction={} menuType={} menuOption={}", action, type, option); }
+        { log.debug("FP context cancelled: previousAction={} menuType={} menuOption={} widget={}", action, type, option, event.getParam1()); }
         clearAction();
+    }
+
+    static boolean preservesFarmingContext(MenuAction type, int widgetId, String option)
+    {
+        if (preservesFarmingContext(type)) { return true; }
+        int group = widgetId >>> 16;
+        boolean gameFrame = group == InterfaceID.TOPLEVEL || group == InterfaceID.TOPLEVEL_OSRS_STRETCH
+            || group == InterfaceID.TOPLEVEL_PRE_EOC || group == InterfaceID.TOPLEVEL_OSM;
+        // Restrict this exception to tab buttons; item actions and spell casts must still cancel context.
+        return (type == MenuAction.CC_OP || type == MenuAction.CC_OP_LOW_PRIORITY) && gameFrame
+            && java.util.Set.of("inventory", "combat options", "skills", "quest list", "worn equipment",
+                "prayer", "magic", "friends list", "ignore list", "settings", "emotes", "music player",
+                "logout", "chat-channel", "clan").contains(option);
     }
 
     static boolean preservesFarmingContext(MenuAction type)
@@ -419,8 +433,10 @@ public class FarmingProfitPlugin extends Plugin
             if (action.equals("harvest") && herbPatch != null && hasOpenSack(now) && normalXpWorld())
             {
                 int observed = gains.getOrDefault(herbPatch.itemId, 0);
-                int missing = herbPatch.missingCount(tickXp, outfitMultiplier(), observed, depleted);
-                if (diagnosticsEnabled() && tickXp > 0) { log.debug("FP herb reconciliation: herb={} xp={} multiplier={} state={} depleted={} inferred={} observed={} missing={} reason={}", herbPatch, tickXp, outfitMultiplier(), herbState, depleted, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted), observed, missing, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted) == 0 ? "xp-not-matched" : missing == 0 ? "already-observed" : "record-inferred"); }
+                boolean faladorDiary = client.getVarbitValue(VarbitID.FALADOR_DIARY_MEDIUM_COMPLETE) > 0;
+                double patchMultiplier = HerbHarvest.patchMultiplier(patchPoint, faladorDiary);
+                int missing = herbPatch.missingCount(tickXp, outfitMultiplier(), observed, depleted, patchMultiplier);
+                if (diagnosticsEnabled() && tickXp > 0) { log.debug("FP herb reconciliation: herb={} xp={} multiplier={} patchMultiplier={} faladorDiary={} state={} depleted={} inferred={} observed={} missing={} reason={}", herbPatch, tickXp, outfitMultiplier(), patchMultiplier, faladorDiary, herbState, depleted, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted, patchMultiplier), observed, missing, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted, patchMultiplier) == 0 ? "xp-not-matched" : missing == 0 ? "already-observed" : "record-inferred"); }
                 if (missing > 0)
                 {
                     inferredHarvest = record(herbPatch.itemId, missing, false, "Sack harvest — XP inference", -1);
