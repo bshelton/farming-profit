@@ -6,7 +6,12 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -14,4 +19,13 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew --no-daemon clean test jar
+      - run: ./gradlew --no-daemon clean check preview
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checks-${{ matrix.os }}
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+            build/preview
+          retention-days: 7

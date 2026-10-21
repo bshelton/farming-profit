@@ -35,6 +35,44 @@ tasks.withType(JavaCompile).configureEach {
 	options.release.set(11)
 }
 
+tasks.withType(Test).configureEach {
+    systemProperty 'java.awt.headless', 'true'
+}
+
+tasks.register('verifyReleaseJar') {
+    dependsOn tasks.named('jar')
+    doLast {
+        def archive = tasks.named('jar').get().archiveFile.get().asFile
+        new java.util.zip.ZipFile(archive).withCloseable { zip ->
+            assert zip.getEntry('com/farmingprofit/FarmingProfitPlugin.class') != null
+            assert zip.getEntry('com/farmingprofit/brand/mark-24.png') != null
+            assert zip.getEntry('com/farmingprofit/brand/harvest-144.png') != null
+            zip.entries().each { entry ->
+                assert !entry.name.startsWith('META-INF/services/')
+                assert !entry.name.contains('Launcher') && !entry.name.contains('Preview')
+                assert !entry.name.contains('PerformanceProbe')
+                assert !entry.name.endsWith('Test.class')
+                if (entry.name.endsWith('.class')) {
+                    zip.getInputStream(entry).withCloseable { stream ->
+                        def input = new DataInputStream(stream)
+                        input.readInt(); input.readUnsignedShort()
+                        assert input.readUnsignedShort() == 55 : "Java 11 bytecode required: ${entry.name}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('verifyReleaseJar') }
+
+tasks.register('performanceCheck', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.farmingprofit.PerformanceProbe'
+    args layout.buildDirectory.dir('performance-fixture').get().asFile.absolutePath
+    systemProperty 'java.awt.headless', 'true'
+}
+
 tasks.register('run', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = pluginMainClass

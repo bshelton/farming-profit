@@ -47,6 +47,8 @@ final class FarmingProfitPanel extends PluginPanel
     private boolean active;
     private boolean paused;
     private String activeId;
+    private long accountGeneration;
+    private final java.util.List<JDialog> ledgerDialogs = new java.util.ArrayList<>();
     private static final int HISTORY_PAGE_SIZE = 25;
     private java.util.List<FarmRun> renderedHistory;
     private String historyMessage;
@@ -85,9 +87,9 @@ final class FarmingProfitPanel extends PluginPanel
         help.setFont(BODY.deriveFont(11f));
         help.addActionListener(e -> showHelp()); content.add(fit(help));
         add(content, BorderLayout.NORTH);
-        start.addActionListener(e -> plugin.startManual());
-        finish.addActionListener(e -> plugin.finishManual());
-        pause.addActionListener(e -> plugin.pauseManual(activeId, !paused));
+        start.addActionListener(e -> plugin.startManual(accountGeneration));
+        finish.addActionListener(e -> plugin.finishManual(accountGeneration, activeId));
+        pause.addActionListener(e -> plugin.pauseManual(accountGeneration, activeId, !paused));
         delete.setForeground(new Color(244, 151, 145));
         delete.addActionListener(e -> deleteCurrentRun());
         adjust.addActionListener(e -> correction());
@@ -177,7 +179,12 @@ final class FarmingProfitPanel extends PluginPanel
     }
 
     void render(FarmingProfitPlugin.Data data, String message, boolean ready)
+    { render(data, message, ready, 0); }
+
+    void render(FarmingProfitPlugin.Data data, String message, boolean ready, long generation)
     {
+        if (accountGeneration != generation) { closeLedgers(); }
+        accountGeneration = generation;
         current.removeAll();
         this.ready = ready; active = data.active != null;
         activeId = active ? data.active.id : null; paused = active && data.active.paused;
@@ -281,13 +288,14 @@ final class FarmingProfitPanel extends PluginPanel
     private void deleteCurrentRun()
     {
         String expectedId = activeId;
+        long generation = accountGeneration;
         if (expectedId == null) { return; }
         Object[] choices = {"Keep run", "Delete run"};
         int choice = JOptionPane.showOptionDialog(this,
             "Delete this run and all its entries?\nIt will not be saved to History. This cannot be undone.",
             "Delete current run", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
             null, choices, choices[0]);
-        if (choice == 1) { plugin.deleteManual(expectedId); }
+        if (choice == 1) { plugin.deleteManual(generation, expectedId); }
     }
 
     private void showHelp()
@@ -301,6 +309,11 @@ final class FarmingProfitPanel extends PluginPanel
     private void showLedger(FarmRun run)
     {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Farming run ledger", java.awt.Dialog.ModalityType.MODELESS);
+        ledgerDialogs.add(dialog);
+        dialog.addWindowListener(new java.awt.event.WindowAdapter()
+        {
+            @Override public void windowClosed(java.awt.event.WindowEvent event) { ledgerDialogs.remove(dialog); }
+        });
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         dialog.add(new LedgerPanel(run), BorderLayout.CENTER);
         JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 12, 8));
@@ -313,8 +326,16 @@ final class FarmingProfitPanel extends PluginPanel
         dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
 
+    void closeLedgers()
+    {
+        for (JDialog dialog : new java.util.ArrayList<>(ledgerDialogs)) { dialog.dispose(); }
+        ledgerDialogs.clear();
+    }
+
     private void correction()
     {
+        long generation = accountGeneration;
+        String expectedId = activeId;
         JPanel form = new JPanel(new GridLayout(0, 1, 0, 4));
         JComboBox<Object> crop = new JComboBox<>(); crop.addItem("GP adjustment / supply cost"); CropCatalog.CROPS.values().forEach(crop::addItem);
         JComboBox<String> kind = new JComboBox<>(new String[]{"Cost", "Harvest"});
@@ -328,10 +349,10 @@ final class FarmingProfitPanel extends PluginPanel
         while (JOptionPane.showConfirmDialog(this, form, "Add or correct entry", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
         {
             try { quantity.commitEdit(); price.commitEdit(); } catch (java.text.ParseException ex) { continue; }
-            if ((Integer) quantity.getValue() == 0 || reason.getText().trim().isEmpty())
-            { JOptionPane.showMessageDialog(this, "Enter a nonzero quantity and a reason."); continue; }
+            if ((Integer) quantity.getValue() == 0 || reason.getText().trim().isEmpty() || reason.getText().trim().length() > 1000)
+            { JOptionPane.showMessageDialog(this, "Enter a nonzero quantity and a reason of 1–1,000 characters."); continue; }
             int id = crop.getSelectedItem() instanceof CropCatalog.Crop ? ((CropCatalog.Crop) crop.getSelectedItem()).id : ItemID.COINS;
-            plugin.adjust(id, (Integer) quantity.getValue(), ((Number) price.getValue()).longValue(), kind.getSelectedIndex() == 0, reason.getText().trim());
+            plugin.adjust(generation, expectedId, id, (Integer) quantity.getValue(), ((Number) price.getValue()).longValue(), kind.getSelectedIndex() == 0, reason.getText().trim());
             break;
         }
     }

@@ -1,0 +1,32 @@
+name: Bug report
+description: Report incorrect farming totals, UI problems or client issues.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Plugin commit/version and RuneLite version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include crop, patch location, sack variant/open state, outfit and relevant diary bonuses when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Expected and actual results
+      description: For counting errors, include sack/inventory quantities before and after, plus the ledger quantity.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and display scaling
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or relevant diagnostics
+      description: Share only Farming Profit log excerpts. Omit credentials, account identifiers and unrelated client logs.

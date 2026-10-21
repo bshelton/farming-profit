@@ -70,6 +70,29 @@ public class LedgerPanelTest
         });
     }
 
+    @Test public void manualTextIsDisplayedLiterally() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() -> {
+            FarmRun run = new FarmRun(1);
+            String source = "<html><b>Manual reason</b></html>";
+            run.add(1, "Crop", 1, 100, false, "Manual", source, 2);
+            LedgerPanel panel = new LedgerPanel(run);
+            find(panel, JTable.class).setRowSelectionInterval(0, 0);
+            assertTrue(hasPlainLabel(panel, source));
+        });
+    }
+
+    private static boolean hasPlainLabel(Container parent, String text)
+    {
+        for (Component child : parent.getComponents())
+        {
+            if (child instanceof JLabel && text.equals(((JLabel) child).getText()))
+            { return Boolean.TRUE.equals(((JLabel) child).getClientProperty("html.disable")); }
+            if (child instanceof Container && hasPlainLabel((Container) child, text)) { return true; }
+        }
+        return false;
+    }
+
     private static boolean hasLabel(Container parent, String text)
     {
         for (Component child : parent.getComponents())

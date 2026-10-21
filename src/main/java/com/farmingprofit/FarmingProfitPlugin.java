@@ -1,9 +1,6 @@
 package com.farmingprofit;
 
-import com.google.gson.Gson;
 import com.google.inject.Provides;
-import java.io.Reader;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,7 +31,6 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.util.Filepath;
 import net.runelite.client.util.Text;
 
 @Slf4j
@@ -50,7 +46,7 @@ public class FarmingProfitPlugin extends Plugin
     @Inject private ClientToolbar toolbar;
     @Inject private ConfigManager configs;
     @Inject private FarmingProfitConfig config;
-    @Inject private Gson gson;
+    @Inject private HistoryStore historyStore;
     @Inject private ScheduledExecutorService executor;
     @Inject private OverlayManager overlays;
     @Inject private FarmingReminderOverlay reminderOverlay;
@@ -58,6 +54,7 @@ public class FarmingProfitPlugin extends Plugin
     private FarmingProfitPanel panel;
     private NavigationButton navigation;
     private volatile boolean enabled;
+    private volatile long lifecycleGeneration;
     private String account;
     private boolean loaded;
     private boolean loadFailed;
@@ -114,6 +111,12 @@ public class FarmingProfitPlugin extends Plugin
 
         boolean trackingPaused() { return active != null && active.paused; }
 
+        boolean matchesAction(long expectedGeneration, long currentGeneration, String expectedId)
+        {
+            return expectedGeneration == currentGeneration
+                && java.util.Objects.equals(expectedId, active == null ? null : active.id);
+        }
+
         boolean deleteActive(String expectedId)
         {
             if (active == null || !active.id.equals(expectedId)) { return false; }
@@ -125,43 +128,59 @@ public class FarmingProfitPlugin extends Plugin
         {
             if (version != 1 || history == null) { throw new IllegalStateException("Unsupported history format"); }
             List<FarmRun> runs = new ArrayList<>(history);
+            java.util.Set<String> ids = new java.util.HashSet<>();
             if (active != null) { runs.add(active); }
             for (FarmRun run : runs)
             {
-                if (run == null || run.entries == null || run.warnings == null || run.id == null)
+                if (run == null || run.entries == null || run.warnings == null || run.id == null || run.id.isEmpty()
+                    || !ids.add(run.id) || run.warnings.contains(null) || run.farmingXp < 0
+                    || !validTime(run.startedAt) || !validTime(run.finishedAt) || !validTime(run.lastActivity))
                 { throw new IllegalStateException("Invalid run data"); }
+                long harvest = 0; long costs = 0;
                 for (FarmRun.Entry entry : run.entries)
                 {
                     if (entry == null || entry.name == null || entry.patch == null || entry.source == null
-                        || entry.quantity == 0 || entry.unitPrice < 0 || entry.unitPrice > 2_000_000_000L)
+                        || entry.quantity == 0 || entry.unitPrice < 0 || entry.unitPrice > 2_000_000_000L || !validTime(entry.at))
                     { throw new IllegalStateException("Invalid ledger entry"); }
+                    long value = Math.multiplyExact(entry.unitPrice, entry.quantity);
+                    if (entry.cost) { costs = Math.addExact(costs, value); } else { harvest = Math.addExact(harvest, value); }
                 }
+                Math.subtractExact(harvest, costs);
             }
         }
+
+        private static boolean validTime(long value) { return value >= 0 && value <= 253402300799999L; }
     }
 
     @Provides FarmingProfitConfig provideConfig(ConfigManager manager) { return manager.getConfig(FarmingProfitConfig.class); }
 
     @Override protected void startUp()
     {
+        long lifecycle = ++lifecycleGeneration;
         enabled = true;
         overlays.add(reminderOverlay);
         if (diagnosticsEnabled()) { log.debug("FP diagnostic session started: format=2 automatic={} travel={}", config.automatic(), config.travel()); }
         SwingUtilities.invokeLater(() -> {
-            if (!enabled) { return; }
+            if (!enabled || lifecycle != lifecycleGeneration) { return; }
             panel = new FarmingProfitPanel(this);
             navigation = NavigationButton.builder().tooltip("Farming Profit").icon(BrandAssets.MARK).priority(7).panel(panel).build();
             toolbar.addNavigation(navigation);
         });
-        clientThread.invoke(() -> { resetSignals(); refresh(); });
+        clientThread.invoke(() -> { if (enabled && lifecycle == lifecycleGeneration) { resetSignals(); refresh(); } });
     }
 
     @Override protected void shutDown()
     {
         enabled = false;
+        lifecycleGeneration++;
         highlightClosedSack = false;
         overlays.remove(reminderOverlay);
-        SwingUtilities.invokeLater(() -> { if (navigation != null) { toolbar.removeNavigation(navigation); } });
+        NavigationButton oldNavigation = navigation;
+        FarmingProfitPanel oldPanel = panel;
+        SwingUtilities.invokeLater(() -> {
+            if (oldNavigation != null) { toolbar.removeNavigation(oldNavigation); }
+            if (oldPanel != null) { oldPanel.closeLedgers(); }
+        });
         clientThread.invoke(() -> {
             save(); accountGeneration++; account = null; loaded = false; data = new Data(); travel.clear(); resetSignals();
         });
@@ -206,6 +225,7 @@ public class FarmingProfitPlugin extends Plugin
                 storageStatus = "Log in to load your farming history."; refresh();
             }
         }
+        if (event.getGameState() != GameState.LOADING) { refresh(); }
     }
 
     static boolean resetsTracking(GameState state)
@@ -222,13 +242,7 @@ public class FarmingProfitPlugin extends Plugin
             Data read = new Data(); String error = null;
             try
             {
-                Filepath file = getPluginDirectory().join(key + ".json");
-                if (file.exists())
-                {
-                    try (Reader reader = file.openBufferedReader()) { read = gson.fromJson(reader, Data.class); }
-                    if (read == null) { throw new IllegalStateException("Empty history"); }
-                    read.validate();
-                }
+                read = historyStore.load(getPluginDirectory(), key);
             }
             catch (Exception ex) { log.warn("Unable to load farming history", ex); error = "History could not be loaded. Tracking paused to protect the saved file."; }
             Data result = read; String failure = error;
@@ -247,21 +261,22 @@ public class FarmingProfitPlugin extends Plugin
     {
         if (!loaded || loadFailed || account == null) { return; }
         String key = account;
+        long generation = accountGeneration;
         if (!pendingWrites.offer(key, data.snapshot())) { return; }
         io = io.handle((v, e) -> null).thenRunAsync(() -> {
             Data snapshot = pendingWrites.take(key);
             try
             {
-                String json = gson.toJson(snapshot);
-                Filepath dir = getPluginDirectory(); dir.createDirectories();
-                Filepath temporary = dir.join(key + ".pending");
-                temporary.write(json);
-                temporary.moveTo(dir.join(key + ".json"), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                historyStore.save(getPluginDirectory(), key, snapshot);
+                clientThread.invoke(() -> {
+                    if (enabled && key.equals(account) && generation == accountGeneration && storageStatus.startsWith("Save failed"))
+                    { storageStatus = "Saved locally · GE estimates before tax"; refresh(); }
+                });
             }
             catch (Exception ex)
             {
                 log.warn("Unable to save farming history", ex);
-                clientThread.invoke(() -> { if (key.equals(account)) { storageStatus = "Save failed — this run is only in memory. Check disk access."; refresh(); } });
+                clientThread.invoke(() -> { if (enabled && key.equals(account) && generation == accountGeneration) { storageStatus = "Save failed — recent changes are only in memory. Check disk access."; refresh(); } });
             }
         }, executor);
     }
@@ -285,14 +300,14 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onMenuOptionClicked(MenuOptionClicked event)
     {
-        if (loaded) { inspectReminderInteraction(event); }
-        if (trackingPaused()) { return; }
-        if (!loaded)
+        if (!currentProfile())
         {
             if (diagnosticsEnabled() && ("Pick".equalsIgnoreCase(event.getMenuOption()) || "Harvest".equalsIgnoreCase(event.getMenuOption())))
             { log.debug("FP menu skipped: history not ready loadFailed={}", loadFailed); }
             return;
         }
+        inspectReminderInteraction(event);
+        if (trackingPaused()) { return; }
         String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
         MenuAction type = event.getMenuAction();
         // Dismissing a menu, examining, or selecting an item does not stop server-side harvesting.
@@ -422,6 +437,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (!currentProfile()) { return; }
         if (reminderPoint != null && (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN))
         { updateReminders(); }
         if (event.getContainerId() != InventoryID.INV || travel.pendingItem() < 0) { return; }
@@ -437,7 +453,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onStatChanged(StatChanged event)
     {
-        if (event.getSkill() != Skill.FARMING) { return; }
+        if (event.getSkill() != Skill.FARMING || !currentProfile()) { return; }
         if (reminderPoint != null && event.getXp() > farmingXp) { reminderUntil = tick + 30; }
         if (trackingPaused()) { farmingXp = event.getXp(); tickXp = 0; return; }
         int delta = farmingXp < 0 ? 0 : Math.max(0, event.getXp() - farmingXp);
@@ -449,7 +465,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onChatMessage(ChatMessage event)
     {
-        if (!loaded || trackingPaused() || action.isEmpty() || tick > actionUntil) { return; }
+        if (!currentProfile() || trackingPaused() || action.isEmpty() || tick > actionUntil) { return; }
         if (event.getType() != ChatMessageType.SPAM && event.getType() != ChatMessageType.GAMEMESSAGE) { return; }
         String text = Text.removeTags(event.getMessage());
         String herb = HarvestSignals.sackHerb(text);
@@ -469,7 +485,9 @@ public class FarmingProfitPlugin extends Plugin
         if (diagnosticsEnabled() && (herb != null || text.startsWith("You pick ") || text.startsWith("You harvest ") || compostItem != -1))
         { log.debug("FP chat evidence: action={} sackHerb={} harvestMessage={} compostItem={}", action, herb, harvestMessage, compostItem); }
         if (text.startsWith("The ") && text.contains("has been treated with") && data.active != null)
-        { data.active.warnings.add("Fertile Soil spell supplies need a manual cost adjustment."); }
+        {
+            if (data.active.warnings.add("Fertile Soil spell supplies need a manual cost adjustment.")) { save(); refresh(); }
+        }
     }
 
     @Subscribe public void onGameTick(GameTick event)
@@ -553,7 +571,7 @@ public class FarmingProfitPlugin extends Plugin
 
     private void reconcileSignals()
     {
-        if (!loaded) { return; }
+        if (!currentProfile()) { return; }
         // Pause clears context once; resume takes fresh baselines. No inventory work while paused.
         if (trackingPaused()) { return; }
         Map<Integer, Integer> now = snapshot();
@@ -686,11 +704,11 @@ public class FarmingProfitPlugin extends Plugin
         return true;
     }
 
-    void startManual() { clientThread.invoke(() -> { if (loaded && data.active == null) { data.active = new FarmRun(System.currentTimeMillis()); save(); refresh(); } }); }
-    void pauseManual(String expectedId, boolean paused)
+    void startManual(long generation) { clientThread.invoke(() -> { if (canEdit(generation, null) && data.active == null) { data.active = new FarmRun(System.currentTimeMillis()); save(); refresh(); } }); }
+    void pauseManual(long generation, String expectedId, boolean paused)
     {
         clientThread.invoke(() -> {
-            if (!loaded || data.active == null || !data.active.id.equals(expectedId)) { return; }
+            if (!canEdit(generation, expectedId) || data.active == null) { return; }
             if (!data.active.paused && paused) { reconcileSignals(); }
             if (data.active == null || !data.active.id.equals(expectedId)) { return; }
             data.active.setPaused(paused, System.currentTimeMillis());
@@ -699,10 +717,10 @@ public class FarmingProfitPlugin extends Plugin
         });
     }
 
-    void deleteManual(String expectedId)
+    void deleteManual(long generation, String expectedId)
     {
         clientThread.invoke(() -> {
-            if (!loaded || !data.deleteActive(expectedId)) { return; }
+            if (!canEdit(generation, expectedId) || !data.deleteActive(expectedId)) { return; }
             clearReminders();
             freshTrackingBaseline(); save(); refresh();
         });
@@ -718,7 +736,14 @@ public class FarmingProfitPlugin extends Plugin
         configs.setConfiguration("farming-profit", "travel", travelCosts);
         configs.setConfiguration("farming-profit", "idleMinutes", idle);
     }
-    void finishManual() { clientThread.invoke(this::finish); }
+    void finishManual(long generation, String expectedId)
+    {
+        clientThread.invoke(() -> {
+            if (!canEdit(generation, expectedId) || data.active == null) { return; }
+            reconcileSignals();
+            if (canEdit(generation, expectedId)) { finish(); }
+        });
+    }
     void updateReminderSettings(boolean secateurs, boolean sack, boolean paused, boolean outline)
     {
         configs.setConfiguration("farming-profit", "remindSecateurs", secateurs);
@@ -735,10 +760,12 @@ public class FarmingProfitPlugin extends Plugin
         data.history.add(0, data.active); data.active = null; travel.clear(); clearAction(); clearTick(); save(); refresh();
     }
 
-    void adjust(int id, int quantity, long price, boolean cost, String reason)
+    void adjust(long generation, String expectedId, int id, int quantity, long price, boolean cost, String reason)
     {
         clientThread.invoke(() -> {
-            if (!loaded) { return; }
+            if (!canEdit(generation, expectedId)) { return; }
+            if (quantity == 0 || Math.abs((long) quantity) > 1_000_000 || price < 0 || price > 2_000_000_000L
+                || reason == null || reason.trim().isEmpty() || reason.length() > 1000) { return; }
             if (data.active == null) { data.active = new FarmRun(System.currentTimeMillis()); }
             String name = id == ItemID.COINS ? "GP adjustment" : items.getItemComposition(id).getName();
             data.active.add(id, name, quantity, price, cost, "Manual", reason, System.currentTimeMillis());
@@ -746,12 +773,22 @@ public class FarmingProfitPlugin extends Plugin
         });
     }
 
+    private boolean currentProfile()
+    { return enabled && loaded && account != null && account.equals(configs.getRSProfileKey()) && client.getAccountHash() != 0; }
+
+    private boolean canEdit(long generation, String expectedId)
+    {
+        return currentProfile() && client.getGameState() == GameState.LOGGED_IN
+            && data.matchesAction(generation, accountGeneration, expectedId);
+    }
+
     private void refresh()
     {
         Data copy = data.snapshot();
-        String status = storageStatus; boolean ready = loaded;
+        String status = storageStatus; boolean ready = currentProfile() && client.getGameState() == GameState.LOGGED_IN;
+        long generation = accountGeneration;
         List<String> notices = reminders;
-        Runnable render = () -> { if (enabled && panel != null) { panel.renderReminders(notices); panel.render(copy, status, ready); } };
+        Runnable render = () -> { if (enabled && panel != null) { panel.renderReminders(notices); panel.render(copy, status, ready, generation); } };
         if (pendingRender.getAndSet(render) == null)
         {
             SwingUtilities.invokeLater(() -> {

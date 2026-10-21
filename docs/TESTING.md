@@ -94,6 +94,9 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 - Restart mid-run: retain prior entries without counting starting inventory.
 - Switch accounts: keep histories separate.
 - Reconnect/hop and confirm resumed counts.
+- Open a correction dialog, then let the run finish or change accounts before submitting. It must not change a different run/account. Start/finish/pause/delete actions must reject stale views or disconnected sessions.
+- Disable the plugin with a ledger open, then re-enable. The ledger and old sidebar must close without duplicate navigation buttons. Switch accounts with a ledger open: the previous account's ledger must close.
+- Verify a successful save after a transient write failure clears the save-error status. Automated storage tests simulate failed/interrupted writes and validate session backups; never corrupt real player history for testing.
 
 ## Release gate
 
@@ -105,7 +108,7 @@ Sack counting, repeat dragonfruit harvest, costs, account separation and event-o
 - Identical entries at the same patch, price and source combine into one display row. Differing prices, patches, sources and correction signs remain separate. Stored entries are unchanged.
 - Sort by quantity, unit price and net amount; numbers must sort numerically. Filter Harvest/Costs and select a row: details must still show the correct patch, source, entry count and time range.
 - Expand review notes, resize the window, and test an empty run and negative corrections (including cost refunds). Close with Close or Escape. The window is nonmodal and displays a snapshot taken when opened; reopen to refresh it.
-- Automated tests verify grouping totals/provenance, correction signs, filtering/sorting/selection and empty data. Standalone Swing previews cover 620×480 and 520×400 content sizes; live client scaling remains a user check.
+- Automated tests verify grouping totals/provenance, correction signs, filtering/sorting/selection, literal text rendering and empty data. Standalone Swing previews cover 620×520 and 520×480 content sizes. The user approved the ledger design in the dev client on 2026-10-21.
 
 ## Farming reminders (awaiting live validation)
 

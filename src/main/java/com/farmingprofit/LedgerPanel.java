@@ -66,6 +66,7 @@ final class LedgerPanel extends JPanel
                     boolean focus, int row, int col)
                 {
                     super.getTableCellRendererComponent(t, value, selected, focus, row, col);
+                    putClientProperty("html.disable", true);
                     setFont(BODY); setBorder(new EmptyBorder(4, 8, 4, 8));
                     setHorizontalAlignment(col >= 2 ? RIGHT : LEFT);
                     if (value instanceof Number)
@@ -204,7 +205,7 @@ final class LedgerPanel extends JPanel
         amount.setFont(BODY.deriveFont(Font.BOLD, 17)); amount.setForeground(color); panel.add(amount); return panel;
     }
     private String signed(long value) { return (value > 0 ? "+" : "") + numbers.format(value); }
-    private static JLabel label(String value) { JLabel label = new JLabel(value); label.setFont(BODY); label.setAlignmentX(LEFT_ALIGNMENT); return label; }
+    private static JLabel label(String value) { JLabel label = new JLabel(); label.putClientProperty("html.disable", true); label.setText(value); label.setFont(BODY); label.setAlignmentX(LEFT_ALIGNMENT); return label; }
     private static JPanel column()
     {
         JPanel panel = new JPanel(); panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS)); panel.setOpaque(false); panel.setAlignmentX(LEFT_ALIGNMENT); return panel;

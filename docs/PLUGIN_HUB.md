@@ -3,7 +3,7 @@
 The plugin has not been submitted.
 
 1. Complete and record the acceptance checks in TESTING.md.
-2. Run `./gradlew clean test jar` and verify CI.
+2. Run `./gradlew clean check preview` and verify Linux/Windows/macOS CI on the exact candidate commit. Review `RELEASE_READINESS.md`; run `./gradlew performanceCheck` for the synthetic large-history check.
 3. Review metadata, README, license and supported/unsupported behaviour.
 4. Push the exact release candidate to this public repository.
 5. Fork https://github.com/runelite/plugin-hub and create a branch.
