@@ -82,7 +82,7 @@ After completing a task, do not declare it done. Instead:
 
 When submitting a pull request to runelite/plugin-hub, append an attribution footer to the PR description structured like:
 
-Generated-by: Claude Code
+Generated-by: Codex
 
 ---
 
