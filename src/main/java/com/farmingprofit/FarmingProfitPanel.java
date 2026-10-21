@@ -68,9 +68,7 @@ final class FarmingProfitPanel extends PluginPanel
         content.add(actions); content.add(Box.createVerticalStrut(10));
         status.setForeground(MUTED); content.add(status);
         JButton help = button("How profit is calculated");
-        help.setFont(BODY.deriveFont(11f)); help.setForeground(MUTED);
-        help.setBorder(new EmptyBorder(8, 0, 4, 0));
-        help.setContentAreaFilled(false);
+        help.setFont(BODY.deriveFont(11f));
         help.addActionListener(e -> showHelp()); content.add(fit(help));
         add(content, BorderLayout.NORTH);
         start.addActionListener(e -> plugin.startManual());
@@ -126,7 +124,7 @@ final class FarmingProfitPanel extends PluginPanel
     private void updateActions()
     {
         actions.removeAll();
-        if (tabs.getSelectedIndex() == 0)
+        if (ready && tabs.getSelectedIndex() == 0)
         {
             JButton primary = active ? finish : start;
             primary.setEnabled(ready); actions.add(fit(primary));
@@ -144,20 +142,24 @@ final class FarmingProfitPanel extends PluginPanel
         this.ready = ready; active = data.active != null;
         String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
         setText(status, concise); status.setToolTipText(message);
+        status.setVisible(ready);
         if (data.active == null)
         {
             JLabel title = text(ready ? "Ready for your next run" : "Waiting for your account");
             title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
-            JLabel hint = text(ready ? "Harvest or plant a patch to begin automatically." : "Log in to load your farming history.");
+            JLabel hint = text(ready ? "Harvest or plant a patch to begin automatically." : message);
             hint.setForeground(MUTED); current.add(hint);
-            current.add(Box.createVerticalStrut(6));
-            JLabel manual = text("Or start a run manually below."); manual.setForeground(MUTED); current.add(manual);
+            if (ready)
+            {
+                current.add(Box.createVerticalStrut(6));
+                JLabel manual = text("Or start a run manually below."); manual.setForeground(MUTED); current.add(manual);
+            }
         }
         else { summary(current, data.active); }
         if (data.history.isEmpty())
         {
-            JLabel title = text("No completed runs yet"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
-            JLabel hint = text("Finish a run to see its harvest, costs and profit here."); hint.setForeground(MUTED); history.add(hint);
+            JLabel title = text(ready ? "No completed runs yet" : "Waiting for your account"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
+            JLabel hint = text(ready ? "Finish a run to see its harvest, costs and profit here." : message); hint.setForeground(MUTED); history.add(hint);
         }
         else
         {

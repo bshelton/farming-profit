@@ -30,6 +30,8 @@ public class SidebarPreview
                 capture(panel, output, "sidebar.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Saved locally | GE estimates", true);
                 capture(panel, output, "empty.png");
+                panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);
+                capture(panel, output, "logged-out.png");
             }
             catch (Exception ex) { throw new RuntimeException(ex); }
         });
