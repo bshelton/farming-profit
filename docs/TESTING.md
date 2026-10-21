@@ -12,6 +12,10 @@ Retest after restart: enable Farming diagnostics, check the sack count, harvest 
 
 Follow-up: another eight ranarr herbs were missed after the named-crop fix. The existing log had no farming diagnostics, so the cause remains unresolved.
 
+Diagnostic retest at 18:04–18:05 identified two further defects: the herb and open sack were correctly recognized, but regular ranarr XP deltas of 30/31 were rejected because the code used planting XP (27) instead of harvesting XP (30.5). A `CANCEL` menu action then cleared context while harvesting continued. The final XP delta was 57, consistent with one herb plus 26.5 deferred planting XP. The corrected code retains context for menu dismissal/examine/item selection and subtracts completion XP only when the herb patch is depleted. Tests replay the observed sequence `{31,30,31,30,31,30,31,30,31,30,31,57}` as 12 inferred herbs; the actual sack count and corrected live behavior still need user confirmation.
+
+Herb XP references: [Ranarr seed](https://oldschool.runescape.wiki/w/Ranarr_seed), [herb patches](https://oldschool.runescape.wiki/w/Herb_patch), [Huasca plant](https://oldschool.runescape.wiki/w/Huasca_(plant)), and [Torstol seed](https://oldschool.runescape.wiki/w/Torstol_seed). RuneLite's skill calculator values used previously were not per-herb harvesting XP. Harvest and completion XP are now separate fields.
+
 ## Diagnostic capture
 
 The development launcher now enables diagnostics automatically via a development-only system property. Normal plugin installations retain the optional Farming diagnostics setting. Logging stays at DEBUG and is event-driven, not per frame or idle tick.
