@@ -9,7 +9,7 @@ import java.util.UUID;
 /** A price-snapshotted ledger; moving an item is never a ledger transaction. */
 final class FarmRun
 {
-    String id = UUID.randomUUID().toString();
+    String id;
     long startedAt;
     long lastActivity;
     long finishedAt;
@@ -18,7 +18,18 @@ final class FarmRun
     List<Entry> entries = new ArrayList<>();
     Set<String> warnings = new LinkedHashSet<>();
 
-    FarmRun(long now) { startedAt = lastActivity = now; }
+    FarmRun(long now) { id = UUID.randomUUID().toString(); startedAt = lastActivity = now; }
+
+    private FarmRun(FarmRun original)
+    {
+        id = original.id; startedAt = original.startedAt; lastActivity = original.lastActivity;
+        finishedAt = original.finishedAt; farmingXp = original.farmingXp; paused = original.paused;
+        entries = java.util.Collections.unmodifiableList(new ArrayList<>(original.entries));
+        warnings = java.util.Collections.unmodifiableSet(new LinkedHashSet<>(original.warnings));
+    }
+
+    // Entries are immutable; only the collections and run metadata need copying.
+    FarmRun snapshot() { return new FarmRun(this); }
 
     void setPaused(boolean value, long now) { paused = value; lastActivity = now; }
     boolean idleExpired(long now, int minutes)
@@ -42,14 +53,14 @@ final class FarmRun
 
     static final class Entry
     {
-        int itemId;
-        String name;
-        int quantity;
-        long unitPrice;
-        boolean cost;
-        String patch;
-        String source;
-        long at;
+        final int itemId;
+        final String name;
+        final int quantity;
+        final long unitPrice;
+        final boolean cost;
+        final String patch;
+        final String source;
+        final long at;
         Entry(int itemId, String name, int quantity, long unitPrice, boolean cost,
               String patch, String source, long at)
         {

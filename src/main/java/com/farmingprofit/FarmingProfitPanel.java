@@ -45,6 +45,12 @@ final class FarmingProfitPanel extends PluginPanel
     private boolean active;
     private boolean paused;
     private String activeId;
+    private static final int HISTORY_PAGE_SIZE = 25;
+    private java.util.List<FarmRun> renderedHistory;
+    private String historyMessage;
+    private boolean historyReady;
+    private int historyPage;
+    private long historyProfit;
 
     FarmingProfitPanel(FarmingProfitPlugin plugin)
     {
@@ -149,7 +155,7 @@ final class FarmingProfitPanel extends PluginPanel
 
     void render(FarmingProfitPlugin.Data data, String message, boolean ready)
     {
-        current.removeAll(); history.removeAll();
+        current.removeAll();
         this.ready = ready; active = data.active != null;
         activeId = active ? data.active.id : null; paused = active && data.active.paused;
         String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
@@ -171,27 +177,55 @@ final class FarmingProfitPanel extends PluginPanel
             }
         }
         else { summary(current, data.active); }
-        if (data.history.isEmpty())
+        if (renderedHistory != data.history || historyReady != ready || !message.equals(historyMessage))
         {
-            JLabel title = text(ready ? "No completed runs yet" : "Waiting for your account"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
-            JLabel hint = text(ready ? "Finish a run to see its harvest, costs and profit here." : message); hint.setForeground(MUTED); history.add(hint);
-        }
-        else
-        {
-            row(history, "Total profit", data.history.stream().mapToLong(FarmRun::profit).sum());
-            history.add(Box.createVerticalStrut(8));
-            for (FarmRun run : data.history)
+            if (renderedHistory != data.history)
             {
-                JButton button = button("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp</html>");
-                button.setHorizontalAlignment(SwingConstants.LEFT);
-                button.addActionListener(e -> showLedger(run)); history.add(fit(button)); history.add(Box.createVerticalStrut(6));
+                historyPage = 0;
+                historyProfit = data.history.stream().mapToLong(FarmRun::profit).sum();
             }
+            renderedHistory = data.history; historyReady = ready; historyMessage = message;
+            renderHistory();
         }
         updateActions();
         current.invalidate(); history.invalidate(); actions.invalidate();
         for (java.awt.Container parent = tabs; parent != null; parent = parent.getParent())
         { parent.invalidate(); }
         revalidate(); repaint();
+    }
+
+    private void renderHistory()
+    {
+        history.removeAll();
+        if (renderedHistory.isEmpty())
+        {
+            JLabel title = text(historyReady ? "No completed runs yet" : "Waiting for your account"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
+            JLabel hint = text(historyReady ? "Finish a run to see its harvest, costs and profit here." : historyMessage); hint.setForeground(MUTED); history.add(hint);
+        }
+        else
+        {
+            row(history, "Total profit", historyProfit);
+            history.add(Box.createVerticalStrut(8));
+            int first = historyPage * HISTORY_PAGE_SIZE;
+            int end = Math.min(first + HISTORY_PAGE_SIZE, renderedHistory.size());
+            for (FarmRun run : renderedHistory.subList(first, end))
+            {
+                JButton button = button("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp</html>");
+                button.setHorizontalAlignment(SwingConstants.LEFT);
+                button.addActionListener(e -> showLedger(run)); history.add(fit(button)); history.add(Box.createVerticalStrut(6));
+            }
+            if (renderedHistory.size() > HISTORY_PAGE_SIZE)
+            {
+                history.add(text((first + 1) + "–" + end + " of " + renderedHistory.size() + " runs"));
+                JPanel pages = new JPanel(new GridLayout(1, 2, 6, 0)); pages.setOpaque(false);
+                JButton previous = button("Previous"); previous.setEnabled(historyPage > 0);
+                previous.addActionListener(e -> { historyPage--; renderHistory(); });
+                JButton next = button("Next"); next.setEnabled(end < renderedHistory.size());
+                next.addActionListener(e -> { historyPage++; renderHistory(); });
+                pages.add(previous); pages.add(next); history.add(fit(pages));
+            }
+        }
+        history.revalidate(); history.repaint();
     }
 
     private void summary(JPanel parent, FarmRun run)

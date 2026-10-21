@@ -98,3 +98,14 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 ## Release gate
 
 Sack counting, repeat dragonfruit harvest, costs, account separation and event-order cases must pass before Plugin Hub submission. Record actual results here. Missing signals must not silently be treated as zero harvest.
+
+## Performance review (2026-10-21)
+
+- Removed full-history JSON serialization/deserialization from the client-thread save/refresh paths. Client snapshots copy the current run's collections and share immutable entries; completed history snapshots are cached until a run finishes. JSON encoding and atomic file writes execute on the existing ordered background executor.
+- Slow storage retains only the latest queued snapshot per account, plus any write already in progress. Account loads remain ordered behind writes. Swing similarly keeps only the latest pending render.
+- History components are reused while harvesting and limited to 25 runs per page. All runs remain stored and accessible. History totals are recalculated only when history changes.
+- Paused runs no longer scan inventory every tick. Equipment/XP inference runs only with positive Farming XP, and the outfit multiplier is computed once per reconciliation.
+- No scene-wide scans or per-frame handlers. Unpaused inventory reconciliation scans at most the 28 inventory slots per game tick; game API reads stay on the client thread. Diagnostics remain optional and event-driven.
+- Regression tests cover snapshot isolation and JSON compatibility, history reuse with 1,000 completed runs, pending-write replacement/account separation, and pagination/component reuse. These are structural performance checks, not live CPU/FPS measurements.
+- Remaining scale limits: each save still atomically rewrites the full JSON file in the background; exceptionally large histories increase disk work, startup parsing and the one-time history snapshot/total calculation. The current-run display still rebuilds after ledger changes. Live profiling is required before making numeric CPU or FPS claims.
+- Live retest: harvest into an open sack, verify counts/costs, pause/resume, finish a run, browse History, restart and confirm persistence. Observe responsiveness while harvesting and switching sidebar tabs.

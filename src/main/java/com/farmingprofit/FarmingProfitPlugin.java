@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -60,6 +61,8 @@ public class FarmingProfitPlugin extends Plugin
     private String storageStatus = "Log in to load your farming history.";
     private Data data = new Data();
     private CompletableFuture<Void> io = CompletableFuture.completedFuture(null);
+    private final PendingWrites pendingWrites = new PendingWrites();
+    private final AtomicReference<Runnable> pendingRender = new AtomicReference<>();
     private Map<Integer, Integer> inventory;
     private final Map<Integer, Integer> sack = new HashMap<>();
     private int farmingXp = -1;
@@ -81,6 +84,22 @@ public class FarmingProfitPlugin extends Plugin
         int version = 1;
         FarmRun active;
         List<FarmRun> history = new ArrayList<>();
+        private transient List<FarmRun> historySnapshot;
+
+        Data snapshot()
+        {
+            // Completed runs are never edited. Rebuild this cache only when a run finishes.
+            if (historySnapshot == null || historySnapshot.size() != history.size())
+            {
+                List<FarmRun> copy = new ArrayList<>(history.size());
+                for (FarmRun run : history) { copy.add(run.snapshot()); }
+                historySnapshot = java.util.Collections.unmodifiableList(copy);
+            }
+            Data copy = new Data(); copy.version = version;
+            copy.active = active == null ? null : active.snapshot();
+            copy.history = historySnapshot;
+            return copy;
+        }
 
         boolean trackingPaused() { return active != null && active.paused; }
 
@@ -213,10 +232,12 @@ public class FarmingProfitPlugin extends Plugin
     {
         if (!loaded || loadFailed || account == null) { return; }
         String key = account;
-        String json = gson.toJson(data);
+        if (!pendingWrites.offer(key, data.snapshot())) { return; }
         io = io.handle((v, e) -> null).thenRunAsync(() -> {
+            Data snapshot = pendingWrites.take(key);
             try
             {
+                String json = gson.toJson(snapshot);
                 Filepath dir = getPluginDirectory(); dir.createDirectories();
                 Filepath temporary = dir.join(key + ".pending");
                 temporary.write(json);
@@ -446,7 +467,8 @@ public class FarmingProfitPlugin extends Plugin
     private void reconcileSignals()
     {
         if (!loaded) { return; }
-        if (trackingPaused()) { freshTrackingBaseline(); return; }
+        // Pause clears context once; resume takes fresh baselines. No inventory work while paused.
+        if (trackingPaused()) { return; }
         Map<Integer, Integer> now = snapshot();
         if (inventory == null) { if (diagnosticsEnabled()) { log.debug("FP inventory baseline reset: discardedTickXp={}", tickXp); } inventory = now; farmingXp = client.getSkillExperience(Skill.FARMING); clearTick(); return; }
         boolean context = patchPoint != null && tick <= actionUntil && client.getLocalPlayer() != null
@@ -481,13 +503,15 @@ public class FarmingProfitPlugin extends Plugin
             boolean depleted = herbPatch != null && herbState >= 0 && herbState <= 3;
             if (diagnosticsEnabled() && action.equals("harvest") && tickXp > 0)
             { log.debug("Harvest eligibility: herb={} xp={} openSack={} normalXp={}", herbPatch, tickXp, hasOpenSack(now), normalXpWorld()); }
-            if (action.equals("harvest") && herbPatch != null && hasOpenSack(now) && normalXpWorld())
+            if (tickXp > 0 && action.equals("harvest") && herbPatch != null && hasOpenSack(now) && normalXpWorld())
             {
                 int observed = gains.getOrDefault(herbPatch.itemId, 0);
                 boolean faladorDiary = client.getVarbitValue(VarbitID.FALADOR_DIARY_MEDIUM_COMPLETE) > 0;
                 double patchMultiplier = HerbHarvest.patchMultiplier(patchPoint, faladorDiary);
-                int missing = herbPatch.missingCount(tickXp, outfitMultiplier(), observed, depleted, patchMultiplier);
-                if (diagnosticsEnabled() && tickXp > 0) { log.debug("FP herb reconciliation: herb={} xp={} multiplier={} patchMultiplier={} faladorDiary={} state={} depleted={} inferred={} observed={} missing={} reason={}", herbPatch, tickXp, outfitMultiplier(), patchMultiplier, faladorDiary, herbState, depleted, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted, patchMultiplier), observed, missing, herbPatch.inferredCount(tickXp, outfitMultiplier(), depleted, patchMultiplier) == 0 ? "xp-not-matched" : missing == 0 ? "already-observed" : "record-inferred"); }
+                double outfit = outfitMultiplier();
+                int inferred = herbPatch.inferredCount(tickXp, outfit, depleted, patchMultiplier);
+                int missing = Math.max(0, inferred - observed);
+                if (diagnosticsEnabled()) { log.debug("FP herb reconciliation: herb={} xp={} multiplier={} patchMultiplier={} faladorDiary={} state={} depleted={} inferred={} observed={} missing={} reason={}", herbPatch, tickXp, outfit, patchMultiplier, faladorDiary, herbState, depleted, inferred, observed, missing, inferred == 0 ? "xp-not-matched" : missing == 0 ? "already-observed" : "record-inferred"); }
                 if (missing > 0)
                 {
                     inferredHarvest = record(herbPatch.itemId, missing, false, "Sack harvest — XP inference", -1);
@@ -626,9 +650,15 @@ public class FarmingProfitPlugin extends Plugin
 
     private void refresh()
     {
-        // Deep snapshot before crossing from the client thread to Swing.
-        Data copy = gson.fromJson(gson.toJson(data), Data.class);
+        Data copy = data.snapshot();
         String status = storageStatus; boolean ready = loaded;
-        SwingUtilities.invokeLater(() -> { if (enabled) { panel.render(copy, status, ready); } });
+        Runnable render = () -> { if (enabled && panel != null) { panel.render(copy, status, ready); } };
+        if (pendingRender.getAndSet(render) == null)
+        {
+            SwingUtilities.invokeLater(() -> {
+                Runnable latest = pendingRender.getAndSet(null);
+                if (latest != null) { latest.run(); }
+            });
+        }
     }
 }
