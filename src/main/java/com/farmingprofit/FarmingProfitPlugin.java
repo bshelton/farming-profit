@@ -82,6 +82,15 @@ public class FarmingProfitPlugin extends Plugin
         FarmRun active;
         List<FarmRun> history = new ArrayList<>();
 
+        boolean trackingPaused() { return active != null && active.paused; }
+
+        boolean deleteActive(String expectedId)
+        {
+            if (active == null || !active.id.equals(expectedId)) { return false; }
+            active = null;
+            return true;
+        }
+
         void validate()
         {
             if (version != 1 || history == null) { throw new IllegalStateException("Unsupported history format"); }
@@ -127,6 +136,14 @@ public class FarmingProfitPlugin extends Plugin
 
     private boolean diagnosticsEnabled()
     { return config.diagnostics() || Boolean.getBoolean("farmingprofit.devDiagnostics"); }
+
+    private boolean trackingPaused() { return data.trackingPaused(); }
+
+    private void freshTrackingBaseline()
+    {
+        travel.clear(); clearAction(); clearTick();
+        inventory = snapshot(); farmingXp = client.getSkillExperience(Skill.FARMING);
+    }
 
     private void resetSignals()
     {
@@ -186,7 +203,7 @@ public class FarmingProfitPlugin extends Plugin
                 loadFailed = failure != null; loaded = !loadFailed;
                 data = loadFailed ? new Data() : result;
                 storageStatus = failure == null ? "Saved locally · GE estimates before tax" : failure;
-                if (data.active != null) { data.active.warnings.add("Resumed after reconnect/restart. Verify any activity while tracking was offline."); }
+                if (data.active != null && !data.active.paused) { data.active.warnings.add("Resumed after reconnect/restart. Verify any activity while tracking was offline."); }
                 inventory = snapshot(); farmingXp = client.getSkillExperience(Skill.FARMING); refresh();
             });
         }, executor);
@@ -232,6 +249,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onMenuOptionClicked(MenuOptionClicked event)
     {
+        if (trackingPaused()) { return; }
         if (!loaded)
         {
             if (diagnosticsEnabled() && ("Pick".equalsIgnoreCase(event.getMenuOption()) || "Harvest".equalsIgnoreCase(event.getMenuOption())))
@@ -368,7 +386,7 @@ public class FarmingProfitPlugin extends Plugin
     @Subscribe public void onItemContainerChanged(ItemContainerChanged event)
     {
         if (event.getContainerId() != InventoryID.INV || travel.pendingItem() < 0) { return; }
-        if (!enabled || !loaded || data.active == null || !config.travel()) { travel.clear(); return; }
+        if (!enabled || !loaded || data.active == null || trackingPaused() || !config.travel()) { travel.clear(); return; }
         int id = travel.consumed(inventoryCount(travel.pendingItem()), System.currentTimeMillis());
         if (id < 0) { return; }
         long price = items.getItemPrice(id);
@@ -381,6 +399,7 @@ public class FarmingProfitPlugin extends Plugin
     @Subscribe public void onStatChanged(StatChanged event)
     {
         if (event.getSkill() != Skill.FARMING) { return; }
+        if (trackingPaused()) { farmingXp = event.getXp(); tickXp = 0; return; }
         int delta = farmingXp < 0 ? 0 : Math.max(0, event.getXp() - farmingXp);
         tickXp += delta;
         if (diagnosticsEnabled() && (delta > 0 || farmingXp < 0))
@@ -390,7 +409,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onChatMessage(ChatMessage event)
     {
-        if (!loaded || action.isEmpty() || tick > actionUntil) { return; }
+        if (!loaded || trackingPaused() || action.isEmpty() || tick > actionUntil) { return; }
         if (event.getType() != ChatMessageType.SPAM && event.getType() != ChatMessageType.GAMEMESSAGE) { return; }
         String text = Text.removeTags(event.getMessage());
         String herb = HarvestSignals.sackHerb(text);
@@ -427,6 +446,7 @@ public class FarmingProfitPlugin extends Plugin
     private void reconcileSignals()
     {
         if (!loaded) { return; }
+        if (trackingPaused()) { freshTrackingBaseline(); return; }
         Map<Integer, Integer> now = snapshot();
         if (inventory == null) { if (diagnosticsEnabled()) { log.debug("FP inventory baseline reset: discardedTickXp={}", tickXp); } inventory = now; farmingXp = client.getSkillExperience(Skill.FARMING); clearTick(); return; }
         boolean context = patchPoint != null && tick <= actionUntil && client.getLocalPlayer() != null
@@ -502,7 +522,7 @@ public class FarmingProfitPlugin extends Plugin
             if (depleted && tickXp > 0) { clearAction(); }
         }
         inventory = now; clearTick();
-        if (data.active != null && System.currentTimeMillis() - data.active.lastActivity >= config.idleMinutes() * 60_000L)
+        if (data.active != null && data.active.idleExpired(System.currentTimeMillis(), config.idleMinutes()))
         { finish(); return; }
         if (changed) { save(); refresh(); }
     }
@@ -531,7 +551,7 @@ public class FarmingProfitPlugin extends Plugin
 
     private boolean ensureRun()
     {
-        if (!loaded || loadFailed) { return false; }
+        if (!loaded || loadFailed || trackingPaused()) { return false; }
         if (data.active == null)
         {
             if (!config.automatic()) { return false; }
@@ -556,6 +576,24 @@ public class FarmingProfitPlugin extends Plugin
     }
 
     void startManual() { clientThread.invoke(() -> { if (loaded && data.active == null) { data.active = new FarmRun(System.currentTimeMillis()); save(); refresh(); } }); }
+    void pauseManual(String expectedId, boolean paused)
+    {
+        clientThread.invoke(() -> {
+            if (!loaded || data.active == null || !data.active.id.equals(expectedId)) { return; }
+            if (!data.active.paused && paused) { reconcileSignals(); }
+            if (data.active == null || !data.active.id.equals(expectedId)) { return; }
+            data.active.setPaused(paused, System.currentTimeMillis());
+            freshTrackingBaseline(); save(); refresh();
+        });
+    }
+
+    void deleteManual(String expectedId)
+    {
+        clientThread.invoke(() -> {
+            if (!loaded || !data.deleteActive(expectedId)) { return; }
+            freshTrackingBaseline(); save(); refresh();
+        });
+    }
     boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel()}; }
     int idleMinutes() { return config.idleMinutes(); }
     void updateSettings(boolean automatic, boolean compost, boolean diagnostics, boolean travelCosts, int idle)
@@ -571,6 +609,7 @@ public class FarmingProfitPlugin extends Plugin
     {
         if (!loaded || data.active == null) { return; }
         data.active.finishedAt = System.currentTimeMillis();
+        data.active.paused = false;
         data.history.add(0, data.active); data.active = null; travel.clear(); clearAction(); clearTick(); save(); refresh();
     }
 

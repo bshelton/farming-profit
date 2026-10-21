@@ -82,6 +82,11 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 
 ## Lifecycle
 
+- Pause an active run: harvest, spend supplies and teleport; totals and Farming XP must remain unchanged, and idle completion must not finish the run.
+- Restart while paused: retain entries and paused state. Resume, then interact with a patch again; activity during the pause must not be backfilled.
+- Finish a paused run: save it to History. Manual corrections should remain available while paused.
+- Cancel Delete run: retain the run. Confirm deletion: remove only the current run without adding it to History. A later farming interaction may auto-start a new run.
+- If a deletion dialog outlives its original run, confirming it must not delete a newer run.
 - Bank/travel between patches: retain one run.
 - Finish manually and inspect History.
 - Disable auto-start: only manually started runs should collect entries.

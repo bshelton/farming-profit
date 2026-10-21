@@ -28,6 +28,9 @@ public class SidebarPreview
                 data.active.farmingXp = 1944;
                 panel.render(data, "Saved locally | GE estimates", true);
                 capture(panel, output, "sidebar.png");
+                data.active.setPaused(true, System.currentTimeMillis());
+                panel.render(data, "Saved locally | GE estimates", true);
+                capture(panel, output, "paused.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Saved locally | GE estimates", true);
                 capture(panel, output, "empty.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);

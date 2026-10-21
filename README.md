@@ -7,6 +7,8 @@ A farming-only RuneLite plugin for harvest value, supply costs and local run his
 ## Features
 
 - Run and History tabs, settings, automatic/manual runs and idle completion.
+- Pause/resume preserves the current run across restarts and suspends automatic tracking and idle completion. Manual corrections remain available. Resume starts fresh, excluding activity during the pause.
+- Delete the current run with confirmation without saving it to History. A later farming interaction can automatically start a new run.
 - Harvest catalogue for herbs, allotments, flowers, hops, bushes, cactus, fruit trees, seaweed, mushrooms, belladonna, grapes, calquat, celastrus, crystal trees and coral.
 - Existing/repeat-harvest crops work without a recorded planting event.
 - Visible seed/sapling consumption, successful compost treatment messages and contextual gardener payments.

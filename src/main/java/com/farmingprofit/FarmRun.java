@@ -14,10 +14,15 @@ final class FarmRun
     long lastActivity;
     long finishedAt;
     long farmingXp;
+    boolean paused;
     List<Entry> entries = new ArrayList<>();
     Set<String> warnings = new LinkedHashSet<>();
 
     FarmRun(long now) { startedAt = lastActivity = now; }
+
+    void setPaused(boolean value, long now) { paused = value; lastActivity = now; }
+    boolean idleExpired(long now, int minutes)
+    { return !paused && now - lastActivity >= minutes * 60_000L; }
 
     void add(int itemId, String name, int quantity, long unitPrice, boolean cost,
              String patch, String source, long now)

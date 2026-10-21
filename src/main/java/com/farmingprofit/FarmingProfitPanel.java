@@ -32,6 +32,8 @@ final class FarmingProfitPanel extends PluginPanel
     private final JLabel status = text("");
     private final JButton start = button("Start run");
     private final JButton finish = button("Finish run");
+    private final JButton pause = button("Pause run");
+    private final JButton delete = button("Delete run");
     private final JButton adjust = button("Add / correct entry");
     private final NumberFormat numbers = NumberFormat.getIntegerInstance();
     private final JTabbedPane tabs = new JTabbedPane()
@@ -41,6 +43,8 @@ final class FarmingProfitPanel extends PluginPanel
     };
     private boolean ready;
     private boolean active;
+    private boolean paused;
+    private String activeId;
 
     FarmingProfitPanel(FarmingProfitPlugin plugin)
     {
@@ -74,6 +78,9 @@ final class FarmingProfitPanel extends PluginPanel
         add(content, BorderLayout.NORTH);
         start.addActionListener(e -> plugin.startManual());
         finish.addActionListener(e -> plugin.finishManual());
+        pause.addActionListener(e -> plugin.pauseManual(activeId, !paused));
+        delete.setForeground(new Color(244, 151, 145));
+        delete.addActionListener(e -> deleteCurrentRun());
         adjust.addActionListener(e -> correction());
         tabs.addChangeListener(e -> updateActions());
         render(new FarmingProfitPlugin.Data(), "Log in to start tracking.", false);
@@ -127,12 +134,15 @@ final class FarmingProfitPanel extends PluginPanel
         actions.removeAll();
         if (ready && tabs.getSelectedIndex() == 0)
         {
-            JButton primary = active ? finish : start;
-            primary.setEnabled(ready); actions.add(fit(primary));
             if (active)
             {
+                pause.setText(paused ? "Resume run" : "Pause run");
+                JPanel controls = new JPanel(new GridLayout(1, 2, 6, 0)); controls.setOpaque(false);
+                controls.add(pause); controls.add(finish); actions.add(fit(controls));
                 actions.add(Box.createVerticalStrut(6)); adjust.setEnabled(ready); actions.add(fit(adjust));
+                actions.add(Box.createVerticalStrut(10)); actions.add(fit(delete));
             }
+            else { actions.add(fit(start)); }
         }
         actions.revalidate(); actions.repaint();
     }
@@ -141,6 +151,7 @@ final class FarmingProfitPanel extends PluginPanel
     {
         current.removeAll(); history.removeAll();
         this.ready = ready; active = data.active != null;
+        activeId = active ? data.active.id : null; paused = active && data.active.paused;
         String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
         setText(status, concise); status.setToolTipText(message);
         status.setVisible(ready);
@@ -185,6 +196,11 @@ final class FarmingProfitPanel extends PluginPanel
 
     private void summary(JPanel parent, FarmRun run)
     {
+        if (run.paused)
+        {
+            JLabel notice = text("Paused — automatic tracking is off.");
+            notice.setForeground(GOLD); parent.add(notice);
+        }
         JLabel since = text("Started " + DATE.format(Instant.ofEpochMilli(run.startedAt))); since.setForeground(MUTED); parent.add(since);
         parent.add(text("Estimated profit"));
         JLabel total = new JLabel((run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
@@ -203,6 +219,18 @@ final class FarmingProfitPanel extends PluginPanel
             JButton review = button(run.warnings.size() + " item(s) to review"); review.setForeground(GOLD);
             review.addActionListener(e -> showLedger(run)); parent.add(fit(review));
         }
+    }
+
+    private void deleteCurrentRun()
+    {
+        String expectedId = activeId;
+        if (expectedId == null) { return; }
+        Object[] choices = {"Keep run", "Delete run"};
+        int choice = JOptionPane.showOptionDialog(this,
+            "Delete this run and all its entries?\nIt will not be saved to History. This cannot be undone.",
+            "Delete current run", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+            null, choices, choices[0]);
+        if (choice == 1) { plugin.deleteManual(expectedId); }
     }
 
     private void showHelp()
