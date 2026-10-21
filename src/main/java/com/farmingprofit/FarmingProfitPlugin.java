@@ -72,6 +72,7 @@ public class FarmingProfitPlugin extends Plugin
     private int compostItem = -1;
     private boolean bottomless;
     private HerbHarvest herbPatch;
+    private final TravelCosts travel = new TravelCosts();
 
     static final class Data
     {
@@ -117,7 +118,7 @@ public class FarmingProfitPlugin extends Plugin
         enabled = false;
         SwingUtilities.invokeLater(() -> { if (navigation != null) { toolbar.removeNavigation(navigation); } });
         clientThread.invoke(() -> {
-            save(); accountGeneration++; account = null; loaded = false; data = new Data(); resetSignals();
+            save(); accountGeneration++; account = null; loaded = false; data = new Data(); travel.clear(); resetSignals();
         });
     }
 
@@ -132,6 +133,8 @@ public class FarmingProfitPlugin extends Plugin
     {
         if (event.getGameState() != GameState.LOGGED_IN)
         {
+            // Region loading is normal during a teleport; keep pending consumption across it.
+            if (event.getGameState() != GameState.LOADING) { travel.clear(); }
             resetSignals();
             if (event.getGameState() == GameState.LOGIN_SCREEN)
             {
@@ -143,7 +146,7 @@ public class FarmingProfitPlugin extends Plugin
 
     private void loadAccount(String key)
     {
-        save(); account = key; loaded = false; loadFailed = false; data = new Data(); resetSignals();
+        save(); account = key; loaded = false; loadFailed = false; data = new Data(); travel.clear(); resetSignals();
         long generation = ++accountGeneration;
         storageStatus = "Loading local history…"; refresh();
         io = io.handle((v, e) -> null).thenRunAsync(() -> {
@@ -214,6 +217,12 @@ public class FarmingProfitPlugin extends Plugin
         if (!loaded) { return; }
         String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
         MenuAction type = event.getMenuAction();
+        if (type != MenuAction.WIDGET_CONTINUE)
+        {
+            travel.clear();
+            if (data.active != null && config.travel() && (type == MenuAction.CC_OP || type == MenuAction.CC_OP_LOW_PRIORITY))
+            { travel.begin(event.getItemId(), option, inventoryCount(event.getItemId()), System.currentTimeMillis()); }
+        }
         // Dialog choices may complete a gardener payment; all other non-patch actions cancel context.
         if (type == MenuAction.WIDGET_CONTINUE || type == MenuAction.CC_OP && "pay".equals(action)) { return; }
         boolean object = type == MenuAction.GAME_OBJECT_FIRST_OPTION || type == MenuAction.GAME_OBJECT_SECOND_OPTION
@@ -281,6 +290,28 @@ public class FarmingProfitPlugin extends Plugin
             || id == VarbitID.FARMING_TRANSMIT_D1 || id == VarbitID.FARMING_TRANSMIT_D2
             || id == VarbitID.FARMING_TRANSMIT_E1 || id == VarbitID.FARMING_TRANSMIT_E2
             || id == VarbitID.FARMING_TRANSMIT_F1 || id == VarbitID.FARMING_TRANSMIT_F2;
+    }
+
+    private int inventoryCount(int id)
+    {
+        ItemContainer container = client.getItemContainer(InventoryID.INV);
+        if (container == null || id < 0) { return 0; }
+        int count = 0;
+        for (Item item : container.getItems()) { if (item.getId() == id) { count += item.getQuantity(); } }
+        return count;
+    }
+
+    @Subscribe public void onItemContainerChanged(ItemContainerChanged event)
+    {
+        if (event.getContainerId() != InventoryID.INV || travel.pendingItem() < 0) { return; }
+        if (!enabled || !loaded || data.active == null || !config.travel()) { travel.clear(); return; }
+        int id = travel.consumed(inventoryCount(travel.pendingItem()), System.currentTimeMillis());
+        if (id < 0) { return; }
+        long price = items.getItemPrice(id);
+        data.active.add(id, items.getItemComposition(id).getName(), 1, price, true, "Travel", "Teleport item consumed", System.currentTimeMillis());
+        if (price == 0) { data.active.warnings.add("Travel item has no GE price; add a manual travel cost if needed."); }
+        if (config.diagnostics()) { log.debug("Travel consumption: item={} cost={}", id, price); }
+        save(); refresh();
     }
 
     @Subscribe public void onStatChanged(StatChanged event)
@@ -439,13 +470,14 @@ public class FarmingProfitPlugin extends Plugin
     }
 
     void startManual() { clientThread.invoke(() -> { if (loaded && data.active == null) { data.active = new FarmRun(System.currentTimeMillis()); save(); refresh(); } }); }
-    boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics()}; }
+    boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel()}; }
     int idleMinutes() { return config.idleMinutes(); }
-    void updateSettings(boolean automatic, boolean compost, boolean diagnostics, int idle)
+    void updateSettings(boolean automatic, boolean compost, boolean diagnostics, boolean travelCosts, int idle)
     {
         configs.setConfiguration("farming-profit", "automatic", automatic);
         configs.setConfiguration("farming-profit", "compost", compost);
         configs.setConfiguration("farming-profit", "diagnostics", diagnostics);
+        configs.setConfiguration("farming-profit", "travel", travelCosts);
         configs.setConfiguration("farming-profit", "idleMinutes", idle);
     }
     void finishManual() { clientThread.invoke(this::finish); }
@@ -453,7 +485,7 @@ public class FarmingProfitPlugin extends Plugin
     {
         if (!loaded || data.active == null) { return; }
         data.active.finishedAt = System.currentTimeMillis();
-        data.history.add(0, data.active); data.active = null; clearAction(); clearTick(); save(); refresh();
+        data.history.add(0, data.active); data.active = null; travel.clear(); clearAction(); clearTick(); save(); refresh();
     }
 
     void adjust(int id, int quantity, long price, boolean cost, String reason)

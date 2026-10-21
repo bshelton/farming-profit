@@ -207,7 +207,7 @@ final class FarmingProfitPanel extends PluginPanel
 
     private void showHelp()
     {
-        JTextArea help = new JTextArea("Estimated profit is harvest value minus supplies used during this run. Earlier planting costs are not included.\n\nExisting fruit trees and cactus count when harvested. Moving, noting or banking produce does not count.\n\nTravel, spell supplies and missed costs can be added using Add / correct entry during a run.\n\nGE values are estimates before sale tax. Sack counts inferred from XP are marked for review. Automatic detection is still being validated.", 13, 34);
+        JTextArea help = new JTextArea("Estimated profit is harvest value minus supplies used during this run. Earlier planting costs are not included.\n\nExisting fruit trees and cactus count when harvested. Moving, noting or banking produce does not count.\n\nConsumed basalt, teleport tablets and inventory scrolls count during an active run. Start the run before your first teleport. Rune costs, jewellery charges, scroll-book teleports and missed costs can be added using Add / correct entry.\n\nGE values are estimates before sale tax. Sack counts inferred from XP are marked for review. Automatic detection is still being validated.", 13, 34);
         help.setFont(BODY); help.setLineWrap(true); help.setWrapStyleWord(true); help.setEditable(false);
         help.setCaretPosition(0);
         JOptionPane.showMessageDialog(this, new JScrollPane(help), "About farming profit", JOptionPane.PLAIN_MESSAGE);
@@ -257,12 +257,13 @@ final class FarmingProfitPanel extends PluginPanel
         JCheckBox automatic = new JCheckBox("Start runs automatically", options[0]);
         JCheckBox compost = new JCheckBox("Include compost costs", options[1]);
         JCheckBox diagnostics = new JCheckBox("Local farming debug logs", options[2]);
+        JCheckBox travel = new JCheckBox("Include consumed teleport items", options[3]);
         JSpinner idle = new JSpinner(new SpinnerNumberModel(plugin.idleMinutes(), 1, 60, 1));
-        JPanel form = new JPanel(new GridLayout(0, 1)); form.add(automatic); form.add(compost); form.add(diagnostics); form.add(new JLabel("Finish after idle minutes")); form.add(idle);
+        JPanel form = new JPanel(new GridLayout(0, 1)); form.add(automatic); form.add(compost); form.add(travel); form.add(diagnostics); form.add(new JLabel("Finish after idle minutes")); form.add(idle);
         if (JOptionPane.showConfirmDialog(this, form, "Farming Profit settings", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
         {
             try { idle.commitEdit(); } catch (java.text.ParseException ex) { return; }
-            plugin.updateSettings(automatic.isSelected(), compost.isSelected(), diagnostics.isSelected(), (Integer) idle.getValue());
+            plugin.updateSettings(automatic.isSelected(), compost.isSelected(), diagnostics.isSelected(), travel.isSelected(), (Integer) idle.getValue());
         }
     }
 }

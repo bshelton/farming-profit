@@ -27,6 +27,10 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 
 ## Other crops and costs
 
+- Start a run before travel. Use one icy basalt, one stony basalt, a house tablet (including Outside), and a loose teleport scroll. Each should add one Travel cost at its GE price, including when the teleport triggers region loading.
+- Bank, withdraw and drop teleport items; verify no travel cost. Attempt a blocked teleport; verify no cost without consumption. Finish the run and teleport; verify no new run or charge. Disable Include consumed teleport items and verify no charge.
+- First-teleport costs before automatic run start, rune spells, jewellery charges and scroll-book uses remain manual. Travel detection is awaiting live validation.
+
 - Pick an established dragonfruit tree: count fruit without a sapling cost. Return after regrowth and count only new fruit.
 - Compare exact cactus/potato cactus, berries and allotment harvests.
 - Exercise flowers, hops, mushrooms, seaweed, grapes and special patches separately. Record each verified location.

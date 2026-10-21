@@ -20,4 +20,7 @@ public interface FarmingProfitConfig extends Config
 
     @ConfigItem(keyName = "diagnostics", name = "Farming diagnostics", description = "Write farming signal details to the debug log for local testing; no chat from other players is logged", position = 3)
     default boolean diagnostics() { return false; }
+
+    @ConfigItem(keyName = "travel", name = "Count teleport items", description = "Count consumed basalt, tablets and inventory teleport scrolls during an active run. Start a run before your first teleport. Runes and jewellery charges need manual costs.", position = 4)
+    default boolean travel() { return true; }
 }

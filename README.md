@@ -31,7 +31,8 @@ GE values are saved per entry. They are estimates before sale tax, not actual sa
 ## Limitations
 
 - The catalogue covers broad patch categories, but each location and live event sequence still needs testing.
-- Travel, Fertile Soil, seed-box consumption and missed gardener payments require manual costs. Payment detection needs recent nearby patch interaction.
+- Consumed icy/stony basalt, supported teleport tablets and loose teleport scrolls count as travel costs during an active run, using GE prices. Start a run manually before the first teleport to include it. This can be disabled in Settings. Only item use followed by consumption counts; banking or dropping items does not.
+- Spell runes (including rune-pouch supplies), jewellery charges, master scroll-book uses, Fertile Soil, seed-box consumption and missed gardener payments require manual costs. Payment detection needs recent nearby patch interaction. Unpriced teleport items require a manual value.
 - Bottomless compost uses half a bucket's price per application. Successful compost messages must be verified with filtered chat.
 - No automatic minigame rewards, Hespori combat loot, farming contracts or birdhouses.
 - Lifetime patch accounting, exports, comparisons, automatic custom price overrides and tax estimates are deferred.
