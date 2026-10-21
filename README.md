@@ -14,6 +14,7 @@ A farming-only RuneLite plugin for harvest value, supply costs and local run his
 - Existing/repeat-harvest crops work without a recorded planting event.
 - Visible seed/sapling consumption, successful compost treatment messages and contextual gardener payments.
 - Farming XP, price snapshots, patch coordinates and an itemized ledger.
+- Readable ledger with harvest/cost/profit totals, signed color-coded amounts, sortable numeric columns, harvest/cost filters, grouped matching entries and selectable patch/source details. Corrections stay separate and review notes can be expanded.
 - Manual cost/harvest adjustments and negative corrections with a required reason.
 - Local per-RuneScape-profile history and unfinished-run recovery; no plugin telemetry.
 

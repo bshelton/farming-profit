@@ -39,14 +39,27 @@ public class SidebarPreview
                 capture(panel, output, "empty.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);
                 capture(panel, output, "logged-out.png");
+                FarmRun ledger = new FarmRun(System.currentTimeMillis());
+                for (int i = 0; i < 13; i++) { ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 1, 6100, false, "Ranarr weed @ 1234,5678", "Sack harvest — XP inference", i * 600L); }
+                ledger.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Ranarr weed @ 1234,5678", "Bottomless compost (half bucket)", 9000);
+                ledger.add(ItemID.COINS, "Planting supplies", 1, 26000, true, "Manual", "Seed cost", 10000);
+                ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", -1, 6100, false, "Manual", "Correct observed count", 11000);
+                ledger.warnings.add("Sack yield includes XP-inferred herbs. Verify against the sack before/after harvesting.");
+                LedgerPanel ledgerPanel = new LedgerPanel(ledger);
+                capture(ledgerPanel, output, "ledger.png", 620, 480);
+                capture(ledgerPanel, output, "ledger-compact.png", 520, 400);
             }
             catch (Exception ex) { throw new RuntimeException(ex); }
         });
     }
     private static void capture(FarmingProfitPanel panel, Filepath output, String name) throws Exception
     {
-        panel.setSize(225, panel.getPreferredSize().height); layout(panel);
-        BufferedImage image = new BufferedImage(450, panel.getHeight() * 2, BufferedImage.TYPE_INT_ARGB);
+        capture(panel, output, name, 225, panel.getPreferredSize().height);
+    }
+    private static void capture(javax.swing.JComponent panel, Filepath output, String name, int width, int height) throws Exception
+    {
+        panel.setSize(width, height); layout(panel);
+        BufferedImage image = new BufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics(); graphics.scale(2, 2); panel.printAll(graphics); graphics.dispose();
         try (var stream = output.join(name).openOutputStream()) { ImageIO.write(image, "png", stream); }
     }

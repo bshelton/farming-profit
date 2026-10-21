@@ -300,17 +300,17 @@ final class FarmingProfitPanel extends PluginPanel
 
     private void showLedger(FarmRun run)
     {
-        JTextArea area = new JTextArea(20, 45); area.setEditable(false); area.setLineWrap(true); area.setWrapStyleWord(true);
-        StringBuilder content = new StringBuilder("Estimated profit: " + numbers.format(run.profit()) + " gp\n\n");
-        for (FarmRun.Entry entry : run.entries)
-        {
-            content.append(entry.cost ? "Cost: " : "Harvest: ").append(entry.quantity).append(" × ").append(entry.name)
-                .append(" @ ").append(entry.unitPrice).append(" gp = ").append(entry.quantity * entry.unitPrice).append(" gp\n")
-                .append(entry.patch).append(" · ").append(entry.source).append("\n\n");
-        }
-        run.warnings.forEach(w -> content.append("Review: ").append(w).append('\n'));
-        area.setText(content.toString()); area.setCaretPosition(0);
-        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Farming run ledger", JOptionPane.PLAIN_MESSAGE);
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Farming run ledger", java.awt.Dialog.ModalityType.MODELESS);
+        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.add(new LedgerPanel(run), BorderLayout.CENTER);
+        JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 12, 8));
+        buttons.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        JButton close = button("Close"); close.addActionListener(e -> dialog.dispose()); buttons.add(close);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.getRootPane().setDefaultButton(close);
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(), KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.pack(); dialog.setMinimumSize(new Dimension(520, 400));
+        dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
 
     private void correction()

@@ -99,6 +99,14 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 
 Sack counting, repeat dragonfruit harvest, costs, account separation and event-order cases must pass before Plugin Hub submission. Record actual results here. Missing signals must not silently be treated as zero harvest.
 
+## Ledger presentation
+
+- Open an active and a historical run. Confirm harvest minus supply costs matches estimated profit and the sum of signed Net values. Positive net amounts are green, negative amounts are red; signs and entry types also convey the meaning.
+- Identical entries at the same patch, price and source combine into one display row. Differing prices, patches, sources and correction signs remain separate. Stored entries are unchanged.
+- Sort by quantity, unit price and net amount; numbers must sort numerically. Filter Harvest/Costs and select a row: details must still show the correct patch, source, entry count and time range.
+- Expand review notes, resize the window, and test an empty run and negative corrections (including cost refunds). Close with Close or Escape. The window is nonmodal and displays a snapshot taken when opened; reopen to refresh it.
+- Automated tests verify grouping totals/provenance, correction signs, filtering/sorting/selection and empty data. Standalone Swing previews cover 620×480 and 520×400 content sizes; live client scaling remains a user check.
+
 ## Farming reminders (awaiting live validation)
 
 - Click a mature herb patch without magic secateurs: show one persistent sidebar reminder. Carry them, then equip them: either location must suppress it. Ordinary secateurs do not qualify.
