@@ -31,6 +31,10 @@ public class SidebarPreview
                 data.active.setPaused(true, System.currentTimeMillis());
                 panel.render(data, "Saved locally | GE estimates", true);
                 capture(panel, output, "paused.png");
+                panel.renderReminders(FarmingReminders.messages(true, true, true, true, false, true, true, true, true));
+                panel.render(data, "Saved locally | GE estimates", true);
+                capture(panel, output, "reminders.png");
+                panel.renderReminders(java.util.List.of());
                 panel.render(new FarmingProfitPlugin.Data(), "Saved locally | GE estimates", true);
                 capture(panel, output, "empty.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);

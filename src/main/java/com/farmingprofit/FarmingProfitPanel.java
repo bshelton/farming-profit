@@ -29,6 +29,8 @@ final class FarmingProfitPanel extends PluginPanel
     private final JPanel current = column();
     private final JPanel history = column();
     private final JPanel actions = column();
+    private final JPanel reminders = column();
+    private java.util.List<String> reminderMessages = java.util.List.of();
     private final JLabel status = text("");
     private final JButton start = button("Start run");
     private final JButton finish = button("Finish run");
@@ -71,6 +73,7 @@ final class FarmingProfitPanel extends PluginPanel
         settings.addActionListener(e -> settings());
         heading.add(settings, BorderLayout.EAST);
         content.add(fit(heading)); content.add(Box.createVerticalStrut(12));
+        reminders.setVisible(false); content.add(reminders);
         tabs.setFont(BODY); tabs.setAlignmentX(LEFT_ALIGNMENT);
         current.setBorder(new EmptyBorder(12, 0, 4, 0));
         history.setBorder(new EmptyBorder(12, 0, 4, 0));
@@ -153,6 +156,19 @@ final class FarmingProfitPanel extends PluginPanel
         actions.revalidate(); actions.repaint();
     }
 
+    void renderReminders(java.util.List<String> messages)
+    {
+        if (messages.equals(reminderMessages)) { return; }
+        reminderMessages = java.util.List.copyOf(messages);
+        reminders.removeAll();
+        for (String message : messages)
+        {
+            JLabel notice = text(message); notice.setForeground(GOLD); reminders.add(notice);
+        }
+        reminders.setVisible(!messages.isEmpty());
+        reminders.revalidate(); reminders.repaint();
+    }
+
     void render(FarmingProfitPlugin.Data data, String message, boolean ready)
     {
         current.removeAll();
@@ -230,7 +246,7 @@ final class FarmingProfitPanel extends PluginPanel
 
     private void summary(JPanel parent, FarmRun run)
     {
-        if (run.paused)
+        if (run.paused && !reminderMessages.contains(FarmingReminders.PAUSED_MESSAGE))
         {
             JLabel notice = text("Paused — automatic tracking is off.");
             notice.setForeground(GOLD); parent.add(notice);
@@ -320,12 +336,18 @@ final class FarmingProfitPanel extends PluginPanel
         JCheckBox compost = new JCheckBox("Include compost costs", options[1]);
         JCheckBox diagnostics = new JCheckBox("Local farming debug logs", options[2]);
         JCheckBox travel = new JCheckBox("Include consumed teleport items", options[3]);
+        JCheckBox secateurs = new JCheckBox("Remind: missing magic secateurs", options[4]);
+        JCheckBox sack = new JCheckBox("Remind: closed herb sack", options[5]);
+        JCheckBox paused = new JCheckBox("Remind: farming while paused", options[6]);
+        JCheckBox outline = new JCheckBox("Outline closed sack during reminder", options[7]);
         JSpinner idle = new JSpinner(new SpinnerNumberModel(plugin.idleMinutes(), 1, 60, 1));
         JPanel form = new JPanel(new GridLayout(0, 1)); form.add(automatic); form.add(compost); form.add(travel); form.add(diagnostics); form.add(new JLabel("Finish after idle minutes")); form.add(idle);
+        form.add(secateurs); form.add(sack); form.add(paused); form.add(outline);
         if (JOptionPane.showConfirmDialog(this, form, "Farming Profit settings", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
         {
             try { idle.commitEdit(); } catch (java.text.ParseException ex) { return; }
             plugin.updateSettings(automatic.isSelected(), compost.isSelected(), diagnostics.isSelected(), travel.isSelected(), (Integer) idle.getValue());
+            plugin.updateReminderSettings(secateurs.isSelected(), sack.isSelected(), paused.isSelected(), outline.isSelected());
         }
     }
 }

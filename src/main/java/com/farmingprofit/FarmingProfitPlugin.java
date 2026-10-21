@@ -27,11 +27,13 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Filepath;
 import net.runelite.client.util.Text;
 
@@ -50,6 +52,8 @@ public class FarmingProfitPlugin extends Plugin
     @Inject private FarmingProfitConfig config;
     @Inject private Gson gson;
     @Inject private ScheduledExecutorService executor;
+    @Inject private OverlayManager overlays;
+    @Inject private FarmingReminderOverlay reminderOverlay;
 
     private FarmingProfitPanel panel;
     private NavigationButton navigation;
@@ -78,6 +82,13 @@ public class FarmingProfitPlugin extends Plugin
     private HerbHarvest herbPatch;
     private int herbVarbit = -1;
     private final TravelCosts travel = new TravelCosts();
+    private WorldPoint reminderPoint;
+    private int reminderUntil;
+    private boolean reminderHarvest;
+    private boolean reminderHerb;
+    private boolean reminderBenefits;
+    private List<String> reminders = List.of();
+    private volatile boolean highlightClosedSack;
 
     static final class Data
     {
@@ -134,6 +145,7 @@ public class FarmingProfitPlugin extends Plugin
     @Override protected void startUp()
     {
         enabled = true;
+        overlays.add(reminderOverlay);
         if (diagnosticsEnabled()) { log.debug("FP diagnostic session started: format=2 automatic={} travel={}", config.automatic(), config.travel()); }
         SwingUtilities.invokeLater(() -> {
             if (!enabled) { return; }
@@ -147,6 +159,8 @@ public class FarmingProfitPlugin extends Plugin
     @Override protected void shutDown()
     {
         enabled = false;
+        highlightClosedSack = false;
+        overlays.remove(reminderOverlay);
         SwingUtilities.invokeLater(() -> { if (navigation != null) { toolbar.removeNavigation(navigation); } });
         clientThread.invoke(() -> {
             save(); accountGeneration++; account = null; loaded = false; data = new Data(); travel.clear(); resetSignals();
@@ -166,6 +180,7 @@ public class FarmingProfitPlugin extends Plugin
 
     private void resetSignals()
     {
+        clearReminders();
         inventory = null; farmingXp = -1; clearAction(); clearTick();
     }
     private void clearAction() { action = ""; patchPoint = null; actionUntil = 0; herbPatch = null; herbVarbit = -1; }
@@ -270,6 +285,7 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onMenuOptionClicked(MenuOptionClicked event)
     {
+        if (loaded) { inspectReminderInteraction(event); }
         if (trackingPaused()) { return; }
         if (!loaded)
         {
@@ -406,6 +422,8 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onItemContainerChanged(ItemContainerChanged event)
     {
+        if (reminderPoint != null && (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN))
+        { updateReminders(); }
         if (event.getContainerId() != InventoryID.INV || travel.pendingItem() < 0) { return; }
         if (!enabled || !loaded || data.active == null || trackingPaused() || !config.travel()) { travel.clear(); return; }
         int id = travel.consumed(inventoryCount(travel.pendingItem()), System.currentTimeMillis());
@@ -420,6 +438,7 @@ public class FarmingProfitPlugin extends Plugin
     @Subscribe public void onStatChanged(StatChanged event)
     {
         if (event.getSkill() != Skill.FARMING) { return; }
+        if (reminderPoint != null && event.getXp() > farmingXp) { reminderUntil = tick + 30; }
         if (trackingPaused()) { farmingXp = event.getXp(); tickXp = 0; return; }
         int delta = farmingXp < 0 ? 0 : Math.max(0, event.getXp() - farmingXp);
         tickXp += delta;
@@ -461,7 +480,75 @@ public class FarmingProfitPlugin extends Plugin
         String key = configs.getRSProfileKey();
         if (!key.equals(account)) { loadAccount(key); return; }
         if (!loaded) { return; }
+        if (reminderPoint != null && (tick > reminderUntil || client.getLocalPlayer() == null
+            || reminderPoint.distanceTo(client.getLocalPlayer().getWorldLocation()) > 12)) { clearReminders(); }
         reconcileSignals();
+    }
+
+    private void inspectReminderInteraction(MenuOptionClicked event)
+    {
+        if (!config.remindSecateurs() && !config.remindSack() && !config.remindPaused()) { return; }
+        MenuAction type = event.getMenuAction();
+        String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
+        if (preservesFarmingContext(type, event.getParam1(), option)) { return; }
+        if (type != MenuAction.GAME_OBJECT_FIRST_OPTION && type != MenuAction.GAME_OBJECT_SECOND_OPTION
+            && type != MenuAction.GAME_OBJECT_THIRD_OPTION && type != MenuAction.GAME_OBJECT_FOURTH_OPTION
+            && type != MenuAction.GAME_OBJECT_FIFTH_OPTION && type != MenuAction.WIDGET_TARGET_ON_GAME_OBJECT) { return; }
+        ObjectComposition definition = client.getObjectDefinition(event.getId());
+        ObjectComposition crop = definition.getImpostorIds() == null ? definition : definition.getImpostor();
+        boolean farming = isFarmingVarbit(definition.getVarbitId());
+        if (crop != null && crop.getActions() != null)
+        {
+            for (String action : crop.getActions())
+            { farming |= "Inspect".equalsIgnoreCase(action) || "Check-health".equalsIgnoreCase(action) || "Rake".equalsIgnoreCase(action); }
+        }
+        if (!farming) { clearReminders(); return; }
+        String name = crop == null ? "" : crop.getName();
+        int state = isFarmingVarbit(definition.getVarbitId()) ? client.getVarbitValue(definition.getVarbitId()) : -1;
+        reminderPoint = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
+        reminderUntil = tick + 30;
+        reminderHarvest = HarvestSignals.patchAction(option, Text.removeTags(event.getMenuTarget())).equals("harvest");
+        reminderHerb = "Herbs".equalsIgnoreCase(name) || HerbHarvest.fromCrop(state, name) != null;
+        reminderBenefits = FarmingReminders.benefitsFromSecateurs(name, reminderHerb);
+        updateReminders();
+    }
+
+    private void updateReminders()
+    {
+        if (reminderPoint == null) { return; }
+        boolean secateurs = false; boolean closedSack = false;
+        ItemContainer carried = client.getItemContainer(InventoryID.INV);
+        if (carried != null)
+        {
+            for (Item item : carried.getItems())
+            {
+                secateurs |= item.getId() == ItemID.FAIRY_ENCHANTED_SECATEURS;
+                closedSack |= FarmingReminders.closedSack(item.getId());
+            }
+        }
+        ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+        if (worn != null)
+        {
+            for (Item item : worn.getItems()) { secateurs |= item.getId() == ItemID.FAIRY_ENCHANTED_SECATEURS; }
+        }
+        List<String> next = FarmingReminders.messages(reminderHarvest, reminderHerb, reminderBenefits,
+            trackingPaused(), secateurs, closedSack, config.remindSecateurs(), config.remindSack(), config.remindPaused());
+        highlightClosedSack = enabled && reminderHarvest && reminderHerb && closedSack && config.remindSack() && config.reminderOutline();
+        if (!next.equals(reminders)) { reminders = next; refresh(); }
+    }
+
+    private void clearReminders()
+    {
+        reminderPoint = null; highlightClosedSack = false;
+        if (!reminders.isEmpty()) { reminders = List.of(); refresh(); }
+    }
+
+    boolean highlightClosedSack() { return highlightClosedSack; }
+
+    @Subscribe public void onConfigChanged(ConfigChanged event)
+    {
+        if ("farming-profit".equals(event.getGroup()))
+        { clientThread.invoke(() -> { if (enabled) { updateReminders(); } }); }
     }
 
     private void reconcileSignals()
@@ -607,6 +694,7 @@ public class FarmingProfitPlugin extends Plugin
             if (!data.active.paused && paused) { reconcileSignals(); }
             if (data.active == null || !data.active.id.equals(expectedId)) { return; }
             data.active.setPaused(paused, System.currentTimeMillis());
+            updateReminders();
             freshTrackingBaseline(); save(); refresh();
         });
     }
@@ -615,10 +703,12 @@ public class FarmingProfitPlugin extends Plugin
     {
         clientThread.invoke(() -> {
             if (!loaded || !data.deleteActive(expectedId)) { return; }
+            clearReminders();
             freshTrackingBaseline(); save(); refresh();
         });
     }
-    boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel()}; }
+    boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel(),
+        config.remindSecateurs(), config.remindSack(), config.remindPaused(), config.reminderOutline()}; }
     int idleMinutes() { return config.idleMinutes(); }
     void updateSettings(boolean automatic, boolean compost, boolean diagnostics, boolean travelCosts, int idle)
     {
@@ -629,11 +719,19 @@ public class FarmingProfitPlugin extends Plugin
         configs.setConfiguration("farming-profit", "idleMinutes", idle);
     }
     void finishManual() { clientThread.invoke(this::finish); }
+    void updateReminderSettings(boolean secateurs, boolean sack, boolean paused, boolean outline)
+    {
+        configs.setConfiguration("farming-profit", "remindSecateurs", secateurs);
+        configs.setConfiguration("farming-profit", "remindSack", sack);
+        configs.setConfiguration("farming-profit", "remindPaused", paused);
+        configs.setConfiguration("farming-profit", "reminderOutline", outline);
+    }
     private void finish()
     {
         if (!loaded || data.active == null) { return; }
         data.active.finishedAt = System.currentTimeMillis();
         data.active.paused = false;
+        clearReminders();
         data.history.add(0, data.active); data.active = null; travel.clear(); clearAction(); clearTick(); save(); refresh();
     }
 
@@ -652,7 +750,8 @@ public class FarmingProfitPlugin extends Plugin
     {
         Data copy = data.snapshot();
         String status = storageStatus; boolean ready = loaded;
-        Runnable render = () -> { if (enabled && panel != null) { panel.render(copy, status, ready); } };
+        List<String> notices = reminders;
+        Runnable render = () -> { if (enabled && panel != null) { panel.renderReminders(notices); panel.render(copy, status, ready); } };
         if (pendingRender.getAndSet(render) == null)
         {
             SwingUtilities.invokeLater(() -> {

@@ -99,6 +99,17 @@ Record client version, crop, location, outfit, initial/final quantities and revi
 
 Sack counting, repeat dragonfruit harvest, costs, account separation and event-order cases must pass before Plugin Hub submission. Record actual results here. Missing signals must not silently be treated as zero harvest.
 
+## Farming reminders (awaiting live validation)
+
+- Click a mature herb patch without magic secateurs: show one persistent sidebar reminder. Carry them, then equip them: either location must suppress it. Ordinary secateurs do not qualify.
+- Harvest herbs with a closed regular or silk sack: show the reminder. Enable the separate outline setting and check the inventory outline. Open, bank or drop the sack: remove the reminder and outline. No capacity estimate is inferred.
+- Pause a run and interact with a patch: show the paused reminder without recording harvest, costs or XP. Resume: clear the paused reminder. Interact with the patch again to re-establish tracking context.
+- Repeated clicks and harvest XP must not create duplicate messages. Walk more than 12 tiles away, stop interacting for 30 ticks, log out, hop, switch accounts or disable the plugin: clear stale reminders/outlines. Local scene loading preserves context.
+- Disable each reminder separately and verify it clears immediately. The outline must require both its own setting and the sack reminder setting. No reminders are saved to the ledger or History.
+- Check no secateurs advice for fruit/calquat trees, cactus/potato cactus, seaweed, crystal trees, belladonna or ordinary flowers. Supported names include herbs, allotments, bushes, hops, grape vines, limpwurt, celastrus and coral; unknown crop names conservatively suppress yield advice.
+- Mechanics reference: [Magic secateurs](https://oldschool.runescape.wiki/w/Magic_secateurs), checked 2026-10-21. Inventory and equipment both apply; the affected-crop list is broader than herbs. No quest-completion requirement is assumed.
+- Reminder evaluation uses patch clicks and inventory/equipment/config changes. Each active game tick only checks expiration/proximity; Farming XP extends the timeout. The inventory overlay only checks a precomputed flag and item ID before drawing RuneLite's cached item outline.
+
 ## Performance review (2026-10-21)
 
 - Removed full-history JSON serialization/deserialization from the client-thread save/refresh paths. Client snapshots copy the current run's collections and share immutable entries; completed history snapshots are cached until a run finishes. JSON encoding and atomic file writes execute on the existing ordered background executor.
