@@ -30,6 +30,21 @@ enum HerbHarvest
             && patch.getY() >= 3272 ? 1.1 : 1;
     }
 
+    static double outfitMultiplier(int[] equipment)
+    {
+        int pieces = 0;
+        for (int id : equipment)
+        {
+            if (id == ItemID.TITHE_REWARD_HAT_MALE || id == ItemID.TITHE_REWARD_HAT_FEMALE) { pieces |= 1; }
+            if (id == ItemID.TITHE_REWARD_TORSO_MALE || id == ItemID.TITHE_REWARD_TORSO_FEMALE) { pieces |= 2; }
+            if (id == ItemID.TITHE_REWARD_LEGS_MALE || id == ItemID.TITHE_REWARD_LEGS_FEMALE) { pieces |= 4; }
+            if (id == ItemID.TITHE_REWARD_FEET_MALE || id == ItemID.TITHE_REWARD_FEET_FEMALE) { pieces |= 8; }
+        }
+        if (pieces == 15) { return 1.025; }
+        return 1 + ((pieces & 1) != 0 ? .004 : 0) + ((pieces & 2) != 0 ? .008 : 0)
+            + ((pieces & 4) != 0 ? .006 : 0) + ((pieces & 8) != 0 ? .002 : 0);
+    }
+
     final int start;
     final int itemId;
     final double xp;

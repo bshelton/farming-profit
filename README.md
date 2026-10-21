@@ -16,7 +16,7 @@ A farming-only RuneLite plugin for harvest value, supply costs and local run his
 
 ## Herb sack
 
-The prototype combines inventory gains and optional sack messages with an **XP inference fallback**. It identifies the clicked herb patch, observes Farming XP, accounts for the Farmer's outfit, and records only the additional herbs not already observed in inventory or messages.
+The prototype combines inventory gains and optional sack messages with an **XP inference fallback**. It identifies the clicked herb patch, observes Farming XP, accounts for the Farmer's outfit and Falador Diary bonus, separates final-pick completion XP, and records only the additional herbs not already observed in inventory or messages.
 
 **Visible chat messages are not required by the fallback.** XP-inferred entries are labelled and produce a review warning. This is not a direct read of sack contents and has not been verified in-game. Unknown crop state, unexpected XP or the 200m XP cap can prevent a reliable count. Inference is disabled on seasonal, Deadman and tournament worlds. Verify sack contents before/after a harvest and use corrections for mismatches.
 
@@ -60,4 +60,4 @@ Optional DEBUG diagnostics record local farming actions and system signals, not 
 
 ## References
 
-Started from [RuneLite's plugin template](https://github.com/runelite/example-plugin). Patch-state and XP facts were checked against RuneLite's `PatchImplementation`, `Produce` and `FarmingAction`. The optional sack message format was checked against GP-Per-Hour's `U_HerbSack`; its presence during farming is not assumed.
+Started from [RuneLite's plugin template](https://github.com/runelite/example-plugin). Patch states and menu actions were checked against RuneLite's `PatchImplementation` and `Produce`. Harvest XP is separate from the planting values in `FarmingAction`; corrections and live trace evidence are documented in [TESTING](docs/TESTING.md). The optional sack message format was checked against GP-Per-Hour's `U_HerbSack`; its presence during farming is not assumed.

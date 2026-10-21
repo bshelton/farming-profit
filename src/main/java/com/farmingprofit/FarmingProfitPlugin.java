@@ -230,7 +230,10 @@ public class FarmingProfitPlugin extends Plugin
         String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
         MenuAction type = event.getMenuAction();
         // Dismissing a menu, examining, or selecting an item does not stop server-side harvesting.
-        if (preservesFarmingContext(type, event.getParam1(), option)) { return; }
+        if (preservesFarmingContext(type, event.getParam1(), option)
+            || HarvestSignals.isSackCheck(type, event.getItemId(), option)) { return; }
+        // Settle signals already received for the previous action before this click replaces its context.
+        if (!action.isEmpty() && client.getGameState() == GameState.LOGGED_IN) { reconcileSignals(); }
         if (type != MenuAction.WIDGET_CONTINUE)
         {
             travel.clear();
@@ -238,7 +241,8 @@ public class FarmingProfitPlugin extends Plugin
             { travel.begin(event.getItemId(), option, inventoryCount(event.getItemId()), System.currentTimeMillis()); }
         }
         // Dialog choices may complete a gardener payment; all other non-patch actions cancel context.
-        if (type == MenuAction.WIDGET_CONTINUE || type == MenuAction.CC_OP && "pay".equals(action)) { return; }
+        if (type == MenuAction.WIDGET_CONTINUE || type == MenuAction.CC_OP && "pay".equals(action)
+            && (event.getParam1() >>> 16) == InterfaceID.CHATMENU) { return; }
         boolean object = type == MenuAction.GAME_OBJECT_FIRST_OPTION || type == MenuAction.GAME_OBJECT_SECOND_OPTION
             || type == MenuAction.GAME_OBJECT_THIRD_OPTION || type == MenuAction.GAME_OBJECT_FOURTH_OPTION
             || type == MenuAction.GAME_OBJECT_FIFTH_OPTION || type == MenuAction.WIDGET_TARGET_ON_GAME_OBJECT;
@@ -262,8 +266,7 @@ public class FarmingProfitPlugin extends Plugin
                 int arrow = patch.lastIndexOf(" -> ");
                 if (arrow >= 0) { patch = patch.substring(arrow + 4); }
                 patch += " @ " + patchPoint.getX() + "," + patchPoint.getY();
-                action = option.startsWith("pick") || option.equals("harvest") || option.equals("chop-down") || option.equals("cut") ? "harvest" : "plant";
-                if (option.equals("check-health")) { action = "health"; }
+                action = HarvestSignals.patchAction(option, Text.removeTags(event.getMenuTarget()));
                 int patchState = isFarmingVarbit(definition.getVarbitId()) ? client.getVarbitValue(definition.getVarbitId()) : -1;
                 herbPatch = crop == null ? null : HerbHarvest.fromCrop(patchState, crop.getName());
                 herbVarbit = herbPatch == null ? -1 : definition.getVarbitId();
@@ -296,15 +299,26 @@ public class FarmingProfitPlugin extends Plugin
     static boolean preservesFarmingContext(MenuAction type, int widgetId, String option)
     {
         if (preservesFarmingContext(type)) { return true; }
-        int group = widgetId >>> 16;
-        boolean gameFrame = group == InterfaceID.TOPLEVEL || group == InterfaceID.TOPLEVEL_OSRS_STRETCH
-            || group == InterfaceID.TOPLEVEL_PRE_EOC || group == InterfaceID.TOPLEVEL_OSM;
-        // Restrict this exception to tab buttons; item actions and spell casts must still cancel context.
-        return (type == MenuAction.CC_OP || type == MenuAction.CC_OP_LOW_PRIORITY) && gameFrame
-            && java.util.Set.of("inventory", "combat options", "skills", "quest list", "worn equipment",
-                "prayer", "magic", "friends list", "ignore list", "settings", "emotes", "music player",
-                "logout", "chat-channel", "clan").contains(option);
+        if ((type == MenuAction.GAME_OBJECT_FIRST_OPTION || type == MenuAction.GAME_OBJECT_SECOND_OPTION
+            || type == MenuAction.GAME_OBJECT_THIRD_OPTION || type == MenuAction.GAME_OBJECT_FOURTH_OPTION
+            || type == MenuAction.GAME_OBJECT_FIFTH_OPTION) && (option.equals("inspect") || option.equals("guide")))
+        { return true; }
+        if (type != MenuAction.CC_OP && type != MenuAction.CC_OP_LOW_PRIORITY) { return false; }
+        // Match tab components, not their labels (which vary by layout and selected tab).
+        return between(widgetId, InterfaceID.Toplevel.STONE7, InterfaceID.Toplevel.ICON13)
+            || between(widgetId, InterfaceID.Toplevel.STONE0, InterfaceID.Toplevel.ICON6)
+            || between(widgetId, InterfaceID.ToplevelOsrsStretch.STONE7, InterfaceID.ToplevelOsrsStretch.ICON13)
+            || between(widgetId, InterfaceID.ToplevelOsrsStretch.STONE0, InterfaceID.ToplevelOsrsStretch.ICON6)
+            || between(widgetId, InterfaceID.ToplevelPreEoc.STONE10, InterfaceID.ToplevelPreEoc.ICON10)
+            || between(widgetId, InterfaceID.ToplevelPreEoc.STONE7, InterfaceID.ToplevelPreEoc.ICON13)
+            || between(widgetId, InterfaceID.ToplevelPreEoc.STONE0, InterfaceID.ToplevelPreEoc.ICON6)
+            || between(widgetId, InterfaceID.ToplevelOsm.STONE10, InterfaceID.ToplevelOsm.ICON10)
+            || between(widgetId, InterfaceID.ToplevelOsm.STONE1, InterfaceID.ToplevelOsm.ICON11)
+            || between(widgetId, InterfaceID.ToplevelOsm.STONE3, InterfaceID.ToplevelOsm.STONE2)
+            || between(widgetId, InterfaceID.ToplevelOsm.ICON3, InterfaceID.ToplevelOsm.ICON2);
     }
+
+    private static boolean between(int id, int first, int last) { return id >= first && id <= last; }
 
     static boolean preservesFarmingContext(MenuAction type)
     {
@@ -396,6 +410,12 @@ public class FarmingProfitPlugin extends Plugin
         String key = configs.getRSProfileKey();
         if (!key.equals(account)) { loadAccount(key); return; }
         if (!loaded) { return; }
+        reconcileSignals();
+    }
+
+    private void reconcileSignals()
+    {
+        if (!loaded) { return; }
         Map<Integer, Integer> now = snapshot();
         if (inventory == null) { if (diagnosticsEnabled()) { log.debug("FP inventory baseline reset: discardedTickXp={}", tickXp); } inventory = now; farmingXp = client.getSkillExperience(Skill.FARMING); clearTick(); return; }
         boolean context = patchPoint != null && tick <= actionUntil && client.getLocalPlayer() != null
@@ -445,12 +465,12 @@ public class FarmingProfitPlugin extends Plugin
                     { data.active.warnings.add("Sack yield includes XP-inferred herbs. Verify against the sack before/after harvesting; chat messages are not required."); }
                 }
             }
-            if ((action.equals("plant") && tickXp > 0) || action.equals("pay"))
+            if (action.equals("plant") || action.equals("pay"))
             {
                 for (Map.Entry<Integer, Integer> old : inventory.entrySet())
                 {
                     int used = old.getValue() - now.getOrDefault(old.getKey(), 0);
-                    if (used > 0 && (action.equals("pay") || CropCatalog.plantingSupply(items.getItemComposition(old.getKey()).getName())))
+                    if (used > 0 && HarvestSignals.isSupplyCost(action, items.getItemComposition(old.getKey()).getName()))
                     { changed |= record(old.getKey(), used, true, action.equals("pay") ? "Gardener payment" : "Planting", -1); }
                 }
             }
@@ -465,7 +485,7 @@ public class FarmingProfitPlugin extends Plugin
                 data.active.farmingXp += tickXp; data.active.lastActivity = System.currentTimeMillis(); changed = true;
                 if (action.equals("plant") && !changedPlanting(now))
                 { data.active.warnings.add("Some farming XP has no visible seed/sapling cost. Check seed-box and spell costs if used."); }
-                if (action.equals("harvest") && gains.isEmpty() && !inferredHarvest)
+                if (action.equals("harvest") && gains.keySet().stream().noneMatch(CropCatalog.CROPS::containsKey) && !inferredHarvest)
                 { data.active.warnings.add("A harvest had no visible produce signal. Check counts, especially sack harvests."); }
             }
             if (depleted && tickXp > 0) { clearAction(); }
@@ -495,17 +515,7 @@ public class FarmingProfitPlugin extends Plugin
     {
         ItemContainer worn = client.getItemContainer(InventoryID.WORN);
         if (worn == null) { return 1; }
-        int bonus = 0;
-        for (Item item : worn.getItems())
-        {
-            if (item.getId() <= 0) { continue; }
-            String name = items.getItemComposition(item.getId()).getName().toLowerCase(Locale.ENGLISH);
-            if (name.startsWith("farmer's strawhat")) { bonus += 4; }
-            else if (name.equals("farmer's jacket") || name.equals("farmer's shirt")) { bonus += 8; }
-            else if (name.equals("farmer's boro trousers")) { bonus += 6; }
-            else if (name.equals("farmer's boots")) { bonus += 2; }
-        }
-        return 1 + (bonus == 20 ? 25 : bonus) / 1000.0;
+        return HerbHarvest.outfitMultiplier(java.util.Arrays.stream(worn.getItems()).mapToInt(Item::getId).toArray());
     }
 
     private boolean ensureRun()

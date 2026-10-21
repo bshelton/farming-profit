@@ -32,6 +32,22 @@ rg 'FP |Farming action=|Harvest eligibility:|Travel consumption:' /tmp/farming-p
 
 Confirm `FP diagnostic session started: format=2` appears after startup. Preserve the relevant trace before restarting a launch that overwrites that file. No automatic inference fix is considered verified until the user confirms the live count.
 
+## Follow-up detection audit
+
+Code inspection found and addressed these additional cases:
+
+- Planting costs depended on same-tick XP, despite deferred planting XP. A planting interaction plus visible seed/sapling/fragment consumption now records the cost without XP.
+- Composting, raking and other maintenance were classified as planting, producing misleading seed-cost warnings. They now use a separate maintenance context.
+- A real follow-up click could replace context before already-received XP/inventory changes were reconciled. Pending signals are now reconciled before replacing context, as well as on game ticks.
+- Tab labels vary across layouts. Passive navigation now uses game-frame tab component IDs. Inspect/Guide and herb-sack Check also preserve context; Fill/Empty and item use still cancel it.
+- Gardener-payment context previously survived every widget action. Only dialog continuation/selection now preserves it, avoiding accidental charges for later unrelated inventory actions.
+- Outfit bonuses used display-name matching. Both body-type variants now use gameval item IDs, with partial/full-set tests.
+- Coral uses Collect rather than Pick/Harvest, and its planting inputs are frags rather than seeds. Both are now included.
+
+Live audit checks: harvest while switching tabs/checking the sack, immediately replant and compost, and confirm the last herb plus exactly one seed cost and one compost cost. Repeat with a partial/full Farmer's outfit and Falador bonus. Check sack overflow into inventory for duplicate counts. For travel, compare consumption with failed teleport attempts, banking and dropping items. Coral collection, gardener dialogs and rapid action timing still require live validation; unit tests are not evidence of RuneLite event order.
+
+Remaining boundaries: 200m Farming XP prevents silent-sack inference; unsupported boosted worlds disable it; rune-pouch spells, jewellery charges, master scroll-book uses and seed-box consumption still require manual entries. Cross-tick delivery of XP versus inventory/patch-state events needs live validation. No historical missed harvest is reconstructed automatically.
+
 Run `./gradlew run`, enable Farming Profit and optionally enable Farming diagnostics. For Jagex Accounts use https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts. Perform all game actions yourself; the project never automates game input.
 
 Record client version, crop, location, outfit, initial/final quantities and review warnings. Do not publish credentials or unrelated logs.

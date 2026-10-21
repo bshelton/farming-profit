@@ -87,7 +87,8 @@ final class CropCatalog
     static boolean plantingSupply(String name)
     {
         String n = name.toLowerCase(Locale.ENGLISH);
-        return n.endsWith(" seed") || n.endsWith(" seeds") || n.endsWith(" sapling") || n.equals("gout tuber") || n.equals("mushroom spore") || n.equals("seaweed spore") || n.equals("crystal acorn");
+        return n.endsWith(" seed") || n.endsWith(" seeds") || n.endsWith(" sapling") || n.equals("gout tuber") || n.equals("mushroom spore") || n.equals("seaweed spore") || n.equals("crystal acorn")
+            || n.equals("elkhorn frag") || n.equals("pillar frag") || n.equals("umbral frag");
     }
     static final class Crop
     {

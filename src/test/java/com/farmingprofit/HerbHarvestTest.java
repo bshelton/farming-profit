@@ -5,6 +5,40 @@ import static org.junit.Assert.*;
 
 public class HerbHarvestTest
 {
+    @Test public void partialAndFullOutfitsUseBothBodyTypeItemIds()
+    {
+        assertEquals(1, HerbHarvest.outfitMultiplier(new int[]{}), .00001);
+        assertEquals(1.008, HerbHarvest.outfitMultiplier(new int[]{net.runelite.api.gameval.ItemID.TITHE_REWARD_TORSO_FEMALE}), .00001);
+        assertEquals(1.025, HerbHarvest.outfitMultiplier(new int[]{
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_HAT_MALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_TORSO_MALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_LEGS_MALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_FEET_MALE}), .00001);
+        assertEquals(1.025, HerbHarvest.outfitMultiplier(new int[]{
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_HAT_FEMALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_TORSO_FEMALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_LEGS_FEMALE,
+            net.runelite.api.gameval.ItemID.TITHE_REWARD_FEET_FEMALE}), .00001);
+    }
+    @Test public void boostedDoublePickAndFinalPickRoundCorrectly()
+    {
+        assertEquals(2, HerbHarvest.RANARR.inferredCount(69, 1.025, false, 1.1));
+        assertEquals(1, HerbHarvest.RANARR.inferredCount(62, 1.025, true, 1.1));
+        assertEquals(1, HerbHarvest.SNAPDRAGON.inferredCount(201, 1.025, true, 1.1));
+        assertEquals(0, HerbHarvest.RANARR.inferredCount(0, 1.025, false, 1.1));
+    }
+    @Test public void allLayoutsKeepTabNavigationRegardlessOfLabel()
+    {
+        for (int widget : new int[]{net.runelite.api.gameval.InterfaceID.Toplevel.STONE2,
+            net.runelite.api.gameval.InterfaceID.ToplevelOsrsStretch.ICON4,
+            net.runelite.api.gameval.InterfaceID.ToplevelPreEoc.STONE10,
+            net.runelite.api.gameval.InterfaceID.ToplevelOsm.STONE3})
+        { assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP, widget, "different tab label")); }
+        assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.GAME_OBJECT_SECOND_OPTION, 0, "inspect"));
+        assertFalse(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CC_OP,
+            net.runelite.api.gameval.InterfaceID.ToplevelOsrsStretch.MINIMAP, "inventory"));
+        assertFalse(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.WIDGET_TARGET_ON_GAME_OBJECT, 0, "use"));
+    }
     @Test public void replaysConfirmedThirteenHerbFaladorHarvest()
     {
         // 2026-10-21 live trace, verified by the user's sack increase of 13.
