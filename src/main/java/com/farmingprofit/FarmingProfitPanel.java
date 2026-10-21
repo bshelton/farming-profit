@@ -3,6 +3,7 @@ package com.farmingprofit;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.text.NumberFormat;
 import java.time.Instant;
@@ -21,97 +22,189 @@ final class FarmingProfitPanel extends PluginPanel
 {
     private static final Color GOLD = new Color(242, 190, 101);
     private static final Color GREEN = new Color(169, 219, 131);
+    private static final Color MUTED = new Color(185, 185, 185);
+    private static final Font BODY = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault());
     private final FarmingProfitPlugin plugin;
     private final JPanel current = column();
     private final JPanel history = column();
-    private final JLabel status = new JLabel();
-    private final JButton start = new JButton("Start run");
-    private final JButton finish = new JButton("Finish run");
-    private final JButton adjust = new JButton("Add / correct entry");
+    private final JPanel actions = column();
+    private final JLabel status = text("");
+    private final JButton start = button("Start run");
+    private final JButton finish = button("Finish run");
+    private final JButton adjust = button("Add / correct entry");
     private final NumberFormat numbers = NumberFormat.getIntegerInstance();
+    private final JTabbedPane tabs = new JTabbedPane()
+    {
+        @Override public Dimension getMaximumSize()
+        { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+    };
+    private boolean ready;
+    private boolean active;
 
     FarmingProfitPanel(FarmingProfitPlugin plugin)
     {
         this.plugin = plugin;
-        setLayout(new BorderLayout(0, 10)); setBorder(new EmptyBorder(10, 8, 10, 8));
-        JPanel heading = new JPanel(new BorderLayout());
-        JLabel title = new JLabel("Farming Profit"); title.setForeground(GOLD); title.setFont(title.getFont().deriveFont(Font.BOLD, 16));
+        setLayout(new BorderLayout());
+        setBorder(new EmptyBorder(12, 10, 12, 10));
+        setBackground(ColorScheme.DARK_GRAY_COLOR);
+        JPanel content = column();
+        JPanel heading = new JPanel(new BorderLayout(4, 0));
+        heading.setOpaque(false);
+        JLabel title = new JLabel("Farming Profit");
+        title.setFont(BODY.deriveFont(Font.BOLD, 15)); title.setForeground(GOLD);
         heading.add(title, BorderLayout.CENTER);
-        JButton settings = new JButton("Settings"); settings.addActionListener(e -> settings());
-        heading.add(settings, BorderLayout.SOUTH); add(heading, BorderLayout.NORTH);
-        JTabbedPane tabs = new JTabbedPane(); tabs.addTab("Run", current); tabs.addTab("History", history); add(tabs, BorderLayout.CENTER);
-        JPanel footer = column();
-        JPanel actions = new JPanel(new GridLayout(1, 2, 4, 0)); actions.add(start); actions.add(finish); footer.add(actions); footer.add(adjust); footer.add(status);
-        start.addActionListener(e -> plugin.startManual()); finish.addActionListener(e -> plugin.finishManual()); adjust.addActionListener(e -> correction());
-        add(footer, BorderLayout.SOUTH);
+        JButton settings = button("Settings");
+        settings.setFont(BODY.deriveFont(10f));
+        settings.setBorder(new EmptyBorder(6, 5, 6, 5));
+        settings.addActionListener(e -> settings());
+        heading.add(settings, BorderLayout.EAST);
+        content.add(fit(heading)); content.add(Box.createVerticalStrut(12));
+        tabs.setFont(BODY); tabs.setAlignmentX(LEFT_ALIGNMENT);
+        current.setBorder(new EmptyBorder(12, 0, 4, 0));
+        history.setBorder(new EmptyBorder(12, 0, 4, 0));
+        tabs.addTab("Current run", current); tabs.addTab("History", history);
+        content.add(tabs); content.add(Box.createVerticalStrut(12));
+        content.add(actions); content.add(Box.createVerticalStrut(10));
+        status.setForeground(MUTED); content.add(status);
+        JButton help = button("How profit is calculated");
+        help.setFont(BODY.deriveFont(11f)); help.setForeground(MUTED);
+        help.setBorder(new EmptyBorder(8, 0, 4, 0));
+        help.setContentAreaFilled(false);
+        help.addActionListener(e -> showHelp()); content.add(fit(help));
+        add(content, BorderLayout.NORTH);
+        start.addActionListener(e -> plugin.startManual());
+        finish.addActionListener(e -> plugin.finishManual());
+        adjust.addActionListener(e -> correction());
+        tabs.addChangeListener(e -> updateActions());
         render(new FarmingProfitPlugin.Data(), "Log in to start tracking.", false);
     }
 
     private static JPanel column()
     {
-        JPanel panel = new JPanel(); panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel()
+        {
+            @Override public Dimension getMaximumSize()
+            { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
+        };
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(ColorScheme.DARK_GRAY_COLOR); panel.setAlignmentX(LEFT_ALIGNMENT); return panel;
+    }
+    private static <T extends JComponent> T fit(T component)
+    {
+        component.setAlignmentX(LEFT_ALIGNMENT);
+        component.setMaximumSize(new Dimension(Integer.MAX_VALUE, component.getPreferredSize().height));
+        return component;
+    }
+    private static JButton button(String label)
+    {
+        JButton button = new JButton(label); button.setFont(BODY);
+        button.setBorder(new EmptyBorder(8, 8, 8, 8)); return button;
     }
     private static String escape(String text)
     {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
-    private static JLabel text(String text)
+    private static JLabel text(String value)
     {
-        JLabel label = new JLabel("<html><div style='width:165px'>" + escape(text) + "</div></html>");
-        label.setBorder(new EmptyBorder(5, 0, 5, 0)); label.setAlignmentX(LEFT_ALIGNMENT); return label;
+        JLabel label = new JLabel(); label.setFont(BODY);
+        setText(label, value); return label;
+    }
+    private static void setText(JLabel label, String value)
+    {
+        label.setText("<html><div style='width:145px'>" + escape(value) + "</div></html>");
+        label.setBorder(new EmptyBorder(0, 0, 6, 0)); fit(label);
     }
     private void row(JPanel parent, String label, long value)
     {
-        JPanel row = new JPanel(new BorderLayout(4, 0)); row.setBackground(ColorScheme.DARK_GRAY_COLOR);
-        row.add(new JLabel(label), BorderLayout.WEST); row.add(new JLabel(numbers.format(value) + " gp"), BorderLayout.EAST);
-        row.setBorder(new EmptyBorder(4, 0, 4, 0)); row.setAlignmentX(LEFT_ALIGNMENT); parent.add(row);
+        JPanel row = new JPanel(new BorderLayout(4, 0)); row.setOpaque(false);
+        JLabel name = new JLabel(label); name.setFont(BODY); name.setForeground(MUTED);
+        JLabel amount = new JLabel(numbers.format(value) + " gp"); amount.setFont(BODY);
+        row.add(name, BorderLayout.WEST); row.add(amount, BorderLayout.EAST);
+        row.setBorder(new EmptyBorder(4, 0, 4, 0)); parent.add(fit(row));
+    }
+    private void updateActions()
+    {
+        actions.removeAll();
+        if (tabs.getSelectedIndex() == 0)
+        {
+            JButton primary = active ? finish : start;
+            primary.setEnabled(ready); actions.add(fit(primary));
+            if (active)
+            {
+                actions.add(Box.createVerticalStrut(6)); adjust.setEnabled(ready); actions.add(fit(adjust));
+            }
+        }
+        actions.revalidate(); actions.repaint();
     }
 
     void render(FarmingProfitPlugin.Data data, String message, boolean ready)
     {
         current.removeAll(); history.removeAll();
-        start.setEnabled(ready && data.active == null); finish.setEnabled(ready && data.active != null); adjust.setEnabled(ready);
-        status.setText("<html><div style='width:175px'>" + escape(message) + "</div></html>");
+        this.ready = ready; active = data.active != null;
+        String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
+        setText(status, concise); status.setToolTipText(message);
         if (data.active == null)
         {
-            current.add(text("No active farming run"));
-            current.add(text("Harvest or plant a patch to start automatically, or select Start run."));
-            current.add(text("Existing fruit trees and cactus count when harvested. Moving or noting produce does not count."));
+            JLabel title = text(ready ? "Ready for your next run" : "Waiting for your account");
+            title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
+            JLabel hint = text(ready ? "Harvest or plant a patch to begin automatically." : "Log in to load your farming history.");
+            hint.setForeground(MUTED); current.add(hint);
+            current.add(Box.createVerticalStrut(6));
+            JLabel manual = text("Or start a run manually below."); manual.setForeground(MUTED); current.add(manual);
         }
         else { summary(current, data.active); }
-        current.add(text("Run basis: harvest value minus this trip’s costs. Earlier planting costs are not included."));
-        current.add(text("Travel, spell supplies and missed costs can be added manually. Automatic detection is awaiting in-game validation."));
-        if (data.history.isEmpty()) { history.add(text("Your completed runs will appear here.")); }
+        if (data.history.isEmpty())
+        {
+            JLabel title = text("No completed runs yet"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
+            JLabel hint = text("Finish a run to see its harvest, costs and profit here."); hint.setForeground(MUTED); history.add(hint);
+        }
         else
         {
-            long total = data.history.stream().mapToLong(FarmRun::profit).sum();
-            row(history, "All runs", total);
+            row(history, "Total profit", data.history.stream().mapToLong(FarmRun::profit).sum());
+            history.add(Box.createVerticalStrut(8));
             for (FarmRun run : data.history)
             {
-                JButton button = new JButton("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp · " + run.entries.size() + " entries</html>");
-                button.setAlignmentX(LEFT_ALIGNMENT);
-                button.addActionListener(e -> showLedger(run)); history.add(button);
+                JButton button = button("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp</html>");
+                button.setHorizontalAlignment(SwingConstants.LEFT);
+                button.addActionListener(e -> showLedger(run)); history.add(fit(button)); history.add(Box.createVerticalStrut(6));
             }
         }
+        updateActions();
+        current.invalidate(); history.invalidate(); actions.invalidate();
+        for (java.awt.Container parent = tabs; parent != null; parent = parent.getParent())
+        { parent.invalidate(); }
         revalidate(); repaint();
     }
 
     private void summary(JPanel parent, FarmRun run)
     {
-        parent.add(text("Tracking since " + DATE.format(Instant.ofEpochMilli(run.startedAt))));
-        parent.add(text("Estimated run profit"));
-        JLabel total = new JLabel(numbers.format(run.profit()) + " gp");
+        JLabel since = text("Started " + DATE.format(Instant.ofEpochMilli(run.startedAt))); since.setForeground(MUTED); parent.add(since);
+        parent.add(text("Estimated profit"));
+        JLabel total = new JLabel((run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
         total.setForeground(run.profit() >= 0 ? GREEN : ColorScheme.PROGRESS_ERROR_COLOR);
-        total.setFont(total.getFont().deriveFont(Font.BOLD, 23)); parent.add(total);
-        row(parent, "Harvest", run.harvestValue()); row(parent, "Costs", run.costs());
-        parent.add(text(numbers.format(run.farmingXp) + " Farming XP"));
+        total.setFont(BODY.deriveFont(Font.BOLD, 24)); parent.add(fit(total)); parent.add(Box.createVerticalStrut(10));
+        row(parent, "Harvest", run.harvestValue()); row(parent, "Supplies", run.costs());
+        JLabel xp = text(numbers.format(run.farmingXp) + " Farming XP"); xp.setForeground(MUTED); parent.add(xp);
+        parent.add(Box.createVerticalStrut(8));
         Map<String, Integer> harvest = new LinkedHashMap<>();
         run.entries.stream().filter(e -> !e.cost).forEach(e -> harvest.merge(e.name, e.quantity, Integer::sum));
-        harvest.forEach((name, quantity) -> parent.add(text(quantity + " × " + name)));
-        JButton detail = new JButton("Patch / cost breakdown"); detail.addActionListener(e -> showLedger(run)); parent.add(detail);
-        for (String warning : run.warnings) { JLabel label = text("Review: " + warning); label.setForeground(GOLD); parent.add(label); }
+        harvest.forEach((name, quantity) -> parent.add(text(quantity + " x " + name)));
+        JButton detail = button("View breakdown"); detail.addActionListener(e -> showLedger(run)); parent.add(fit(detail));
+        if (!run.warnings.isEmpty())
+        {
+            parent.add(Box.createVerticalStrut(8));
+            JButton review = button(run.warnings.size() + " item(s) to review"); review.setForeground(GOLD);
+            review.addActionListener(e -> showLedger(run)); parent.add(fit(review));
+        }
+    }
+
+    private void showHelp()
+    {
+        JTextArea help = new JTextArea("Estimated profit is harvest value minus supplies used during this run. Earlier planting costs are not included.\n\nExisting fruit trees and cactus count when harvested. Moving, noting or banking produce does not count.\n\nTravel, spell supplies and missed costs can be added using Add / correct entry during a run.\n\nGE values are estimates before sale tax. Sack counts inferred from XP are marked for review. Automatic detection is still being validated.", 13, 34);
+        help.setFont(BODY); help.setLineWrap(true); help.setWrapStyleWord(true); help.setEditable(false);
+        help.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this, new JScrollPane(help), "About farming profit", JOptionPane.PLAIN_MESSAGE);
     }
 
     private void showLedger(FarmRun run)

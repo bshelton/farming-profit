@@ -26,14 +26,20 @@ public class SidebarPreview
                 data.active.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 72, 3000, false, "Catherby", "Harvest", 1);
                 data.active.add(ItemID.COINS, "Planting supplies", 1, 54000, true, "Catherby", "Manual test fixture", 2);
                 data.active.farmingXp = 1944;
-                panel.render(data, "Preview data · GE estimates before tax", true);
-                panel.setSize(225, panel.getPreferredSize().height); layout(panel);
-                BufferedImage image = new BufferedImage(225, panel.getHeight(), BufferedImage.TYPE_INT_ARGB);
-                Graphics2D graphics = image.createGraphics(); panel.printAll(graphics); graphics.dispose();
-                try (var stream = output.join("sidebar.png").openOutputStream()) { ImageIO.write(image, "png", stream); }
+                panel.render(data, "Saved locally | GE estimates", true);
+                capture(panel, output, "sidebar.png");
+                panel.render(new FarmingProfitPlugin.Data(), "Saved locally | GE estimates", true);
+                capture(panel, output, "empty.png");
             }
             catch (Exception ex) { throw new RuntimeException(ex); }
         });
+    }
+    private static void capture(FarmingProfitPanel panel, Filepath output, String name) throws Exception
+    {
+        panel.setSize(225, panel.getPreferredSize().height); layout(panel);
+        BufferedImage image = new BufferedImage(450, panel.getHeight() * 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics(); graphics.scale(2, 2); panel.printAll(graphics); graphics.dispose();
+        try (var stream = output.join(name).openOutputStream()) { ImageIO.write(image, "png", stream); }
     }
     private static void layout(Container container)
     {
