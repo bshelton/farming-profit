@@ -40,6 +40,9 @@ tasks.register('run', JavaExec) {
 	mainClass = pluginMainClass
 
 	jvmArgs "-ea"
+	if (System.getProperty('os.name').toLowerCase().contains('mac')) {
+		jvmArgs '--add-exports=java.desktop/com.apple.eawt=ALL-UNNAMED'
+	}
 	args "--developer-mode", "--debug"
 }
 
