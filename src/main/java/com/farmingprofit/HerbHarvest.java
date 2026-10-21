@@ -31,6 +31,22 @@ enum HerbHarvest
         for (HerbHarvest herb : values()) { if (value >= herb.start && value <= herb.start + 2) { return herb; } }
         return null;
     }
+    static HerbHarvest fromCrop(int value, String cropName)
+    {
+        HerbHarvest herb = fromPatchState(value);
+        if (herb == null || cropName == null) { return null; }
+        // Modern crop definitions can use the herb's name instead of the generic "Herbs".
+        // Require both a harvestable state and a matching name: other patch types reuse these states.
+        String name = cropName.trim();
+        String itemName = CropCatalog.CROPS.get(herb.itemId).name.substring("Grimy ".length());
+        return name.equalsIgnoreCase("Herbs") || name.equalsIgnoreCase(itemName)
+            || name.equalsIgnoreCase(herb.name().replace('_', ' ')) ? herb : null;
+    }
+
+    int missingCount(int delta, double outfitMultiplier, int observed)
+    {
+        return Math.max(0, inferredCount(delta, outfitMultiplier) - observed);
+    }
     int inferredCount(int delta, double outfitMultiplier)
     {
         if (delta <= 0 || outfitMultiplier < 1 || outfitMultiplier > 1.0251) { return 0; }

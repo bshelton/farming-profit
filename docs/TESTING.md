@@ -1,6 +1,14 @@
 # In-game acceptance checklist
 
-Status: not yet executed. A successful build is not a live-game test.
+Status: live testing in progress; herb-sack acceptance is still pending. A successful build is not a live-game test.
+
+## Reported failure: 2026-10-21
+
+An open sack received 10 ranarr herbs at the Trollheim patch (ledger location 2848,3934), but the plugin recorded no harvest. The run displayed 371 total Farming XP and one bottomless ultracompost use; total run XP alone is not enough to reconstruct harvest quantities.
+
+The inference gate required the crop name `Herbs`; the reported ledger used `Ranarr weed`. The fix accepts named herb definitions when they match the harvestable patch state, retains the generic name, and logs crop name/state plus sack/XP eligibility when diagnostics are enabled. Regression tests cover ten silent picks and inventory overflow without double counting. This is a likely cause, pending live confirmation; diagnostics were not enabled for the failed harvest.
+
+Retest after restart: enable Farming diagnostics, check the sack count, harvest a ranarr patch with the sack open, then check the sack again. The ledger should match the increase and label inferred entries `Sack harvest — XP inference`. Check that no missing-produce warning appears for successfully inferred picks. Existing missed harvests are not retroactively reconstructed; use a manual correction for the reported ten herbs if needed.
 
 Run `./gradlew run`, enable Farming Profit and optionally enable Farming diagnostics. For Jagex Accounts use https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts. Perform all game actions yourself; the project never automates game input.
 

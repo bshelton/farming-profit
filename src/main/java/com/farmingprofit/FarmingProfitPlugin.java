@@ -239,11 +239,11 @@ public class FarmingProfitPlugin extends Plugin
                 patch += " @ " + patchPoint.getX() + "," + patchPoint.getY();
                 action = option.startsWith("pick") || option.equals("harvest") || option.equals("chop-down") || option.equals("cut") ? "harvest" : "plant";
                 if (option.equals("check-health")) { action = "health"; }
-                herbPatch = crop != null && crop.getName().equalsIgnoreCase("Herbs") && isFarmingVarbit(definition.getVarbitId())
-                    ? HerbHarvest.fromPatchState(client.getVarbitValue(definition.getVarbitId())) : null;
+                int patchState = isFarmingVarbit(definition.getVarbitId()) ? client.getVarbitValue(definition.getVarbitId()) : -1;
+                herbPatch = crop == null ? null : HerbHarvest.fromCrop(patchState, crop.getName());
                 actionUntil = tick + 30;
                 bottomless = Text.removeTags(event.getMenuTarget()).toLowerCase(Locale.ENGLISH).contains("bottomless");
-                if (config.diagnostics()) { log.debug("Farming action={} patch={} controller={} herb={}", action, patch, definition.getVarbitId(), herbPatch); }
+                if (config.diagnostics()) { log.debug("Farming action={} patch={} object={} crop={} controller={} state={} herb={}", action, patch, event.getId(), crop == null ? null : crop.getName(), definition.getVarbitId(), patchState, herbPatch); }
                 return;
             }
         }
@@ -339,14 +339,18 @@ public class FarmingProfitPlugin extends Plugin
                     changed |= record(gain.getKey(), gain.getValue(), false, "Harvest", -1);
                 }
             }
+            boolean inferredHarvest = false;
+            if (config.diagnostics() && action.equals("harvest") && tickXp > 0)
+            { log.debug("Harvest eligibility: herb={} xp={} openSack={} normalXp={}", herbPatch, tickXp, hasOpenSack(now), normalXpWorld()); }
             if (action.equals("harvest") && herbPatch != null && hasOpenSack(now) && normalXpWorld())
             {
-                int inferred = herbPatch.inferredCount(tickXp, outfitMultiplier());
                 int observed = gains.getOrDefault(herbPatch.itemId, 0);
-                if (config.diagnostics() && tickXp > 0) { log.debug("Herb reconciliation: herb={} xp={} observed={} inferred={}", herbPatch, tickXp, observed, inferred); }
-                if (inferred > observed)
+                int missing = herbPatch.missingCount(tickXp, outfitMultiplier(), observed);
+                if (config.diagnostics() && tickXp > 0) { log.debug("Herb reconciliation: herb={} xp={} observed={} missing={}", herbPatch, tickXp, observed, missing); }
+                if (missing > 0)
                 {
-                    changed |= record(herbPatch.itemId, inferred - observed, false, "Sack harvest — XP inference", -1);
+                    inferredHarvest = record(herbPatch.itemId, missing, false, "Sack harvest — XP inference", -1);
+                    changed |= inferredHarvest;
                     if (data.active != null)
                     { data.active.warnings.add("Sack yield includes XP-inferred herbs. Verify against the sack before/after harvesting; chat messages are not required."); }
                 }
@@ -371,7 +375,7 @@ public class FarmingProfitPlugin extends Plugin
                 data.active.farmingXp += tickXp; data.active.lastActivity = System.currentTimeMillis(); changed = true;
                 if (action.equals("plant") && !changedPlanting(now))
                 { data.active.warnings.add("Some farming XP has no visible seed/sapling cost. Check seed-box and spell costs if used."); }
-                if (action.equals("harvest") && gains.isEmpty())
+                if (action.equals("harvest") && gains.isEmpty() && !inferredHarvest)
                 { data.active.warnings.add("A harvest had no visible produce signal. Check counts, especially sack harvests."); }
             }
         }
