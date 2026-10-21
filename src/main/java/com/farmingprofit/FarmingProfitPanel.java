@@ -125,6 +125,13 @@ final class FarmingProfitPanel extends PluginPanel
         JLabel label = new JLabel(); label.setFont(BODY);
         setText(label, value); return label;
     }
+    private static JLabel centeredText(String value)
+    {
+        JLabel label = text(value);
+        label.setText("<html><div style='width:145px; text-align:center'>" + escape(value) + "</div></html>");
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        return fit(label);
+    }
     private static void setText(JLabel label, String value)
     {
         label.setText("<html><div style='width:145px'>" + escape(value) + "</div></html>");
@@ -182,9 +189,9 @@ final class FarmingProfitPanel extends PluginPanel
             JLabel illustration = new JLabel(BrandAssets.HARVEST, SwingConstants.CENTER);
             illustration.getAccessibleContext().setAccessibleName("Herbs and gold coins in a harvest crate");
             current.add(fit(illustration)); current.add(Box.createVerticalStrut(12));
-            JLabel title = text(ready ? "Ready for your next run" : "Waiting for your account");
+            JLabel title = ready ? text("Ready for your next run") : centeredText("Waiting for your account");
             title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
-            JLabel hint = text(ready ? "Harvest or plant a patch to begin automatically." : message);
+            JLabel hint = ready ? text("Harvest or plant a patch to begin automatically.") : centeredText(message);
             hint.setForeground(MUTED); current.add(hint);
             if (ready)
             {
