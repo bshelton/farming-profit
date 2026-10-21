@@ -35,7 +35,7 @@ final class LedgerPanel extends JPanel
     {
         super(new BorderLayout(0, 12));
         setBorder(new EmptyBorder(16, 16, 12, 16)); setBackground(ColorScheme.DARK_GRAY_COLOR);
-        setPreferredSize(new Dimension(620, 480));
+        setPreferredSize(new Dimension(620, 520));
         JPanel heading = column();
         JLabel title = label("Run breakdown"); title.setFont(BODY.deriveFont(Font.BOLD, 18)); heading.add(title);
         JLabel date = label("Started " + DATE.format(Instant.ofEpochMilli(run.startedAt))); date.setForeground(MUTED);
@@ -71,10 +71,14 @@ final class LedgerPanel extends JPanel
                     if (value instanceof Number)
                     { setText(col == 4 ? signed(((Number) value).longValue()) : numbers.format(value)); }
                     // Type labels and explicit signs convey meaning independently of color.
-                    if (!selected)
+                    setBackground(selected ? new Color(60, 57, 45)
+                        : row % 2 == 0 ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.DARK_GRAY_COLOR);
+                    setForeground(col == 4 ? ((Number) value).longValue() < 0 ? RED : GREEN
+                        : selected ? new Color(255, 232, 187) : Color.WHITE);
+                    if (selected)
                     {
-                        setBackground(row % 2 == 0 ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.DARK_GRAY_COLOR);
-                        setForeground(col == 4 ? ((Number) value).longValue() < 0 ? RED : GREEN : Color.WHITE);
+                        setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(1, 0, 1, 0, new Color(134, 111, 66)), new EmptyBorder(3, 8, 3, 8)));
                     }
                     setToolTipText(col < 2 ? String.valueOf(value) : null);
                     return this;
@@ -102,18 +106,14 @@ final class LedgerPanel extends JPanel
         JScrollPane scroll = new JScrollPane(table); scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.setColumnHeaderView(table.getTableHeader());
         body.add(scroll, BorderLayout.CENTER);
-        JTextArea details = area("Select a row to see its patch, source and time.", 3);
-        details.setForeground(MUTED);
+        SelectionDetails details = new SelectionDetails(model.rows.isEmpty());
         table.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) { return; }
             int row = table.getSelectedRow();
-            details.setText(row < 0 ? "Select a row to see its patch, source and time."
-                : model.rows.get(table.convertRowIndexToModel(row)).details());
-            details.setCaretPosition(0);
+            details.showRow(row < 0 ? null : model.rows.get(table.convertRowIndexToModel(row)));
         });
         JScrollPane detailScroll = new JScrollPane(details); detailScroll.setBorder(BorderFactory.createEmptyBorder());
-        detailScroll.setPreferredSize(new Dimension(0, 65)); body.add(detailScroll, BorderLayout.SOUTH);
-        if (model.rows.isEmpty()) { details.setText("No entries yet. Harvest, use supplies or add a manual entry to populate this ledger."); }
+        detailScroll.setPreferredSize(new Dimension(0, 142)); body.add(detailScroll, BorderLayout.SOUTH);
         add(body, BorderLayout.CENTER);
 
         JPanel footer = column();
@@ -134,6 +134,67 @@ final class LedgerPanel extends JPanel
         }
         JLabel footnote = label("Snapshot when opened · GE estimates before tax"); footnote.setForeground(MUTED);
         footer.add(footnote); add(footer, BorderLayout.SOUTH);
+    }
+
+    private final class SelectionDetails extends JPanel
+    {
+        private final JLabel name = label("");
+        private final JLabel impact = label("");
+        private final JLabel calculation = label("");
+        private final JPanel fields = new JPanel(new java.awt.GridBagLayout());
+        private final boolean empty;
+
+        SelectionDetails(boolean empty)
+        {
+            super(new BorderLayout(0, 10)); this.empty = empty;
+            setBackground(ColorScheme.DARK_GRAY_COLOR);
+            setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(75, 75, 75)), new EmptyBorder(12, 4, 0, 4)));
+            JPanel header = new JPanel(new BorderLayout(8, 0)); header.setOpaque(false);
+            name.setFont(BODY.deriveFont(Font.BOLD, 14)); impact.setFont(BODY.deriveFont(Font.BOLD, 14));
+            header.add(name, BorderLayout.WEST); header.add(impact, BorderLayout.EAST);
+            JPanel title = new JPanel(new BorderLayout(0, 4)); title.setOpaque(false);
+            title.add(header, BorderLayout.NORTH); calculation.setForeground(MUTED); title.add(calculation, BorderLayout.SOUTH);
+            add(title, BorderLayout.NORTH); fields.setOpaque(false); add(fields, BorderLayout.CENTER);
+            showRow(null);
+        }
+
+        void showRow(Row row)
+        {
+            fields.removeAll();
+            if (row == null)
+            {
+                name.setText(empty ? "No entries yet" : "Explore an entry"); name.setForeground(MUTED);
+                impact.setText("");
+                calculation.setText(empty ? "Harvest or add a manual entry to populate this ledger." : "Select a row to see how it was tracked.");
+            }
+            else
+            {
+                name.setText(row.name); name.setForeground(Color.WHITE);
+                impact.setText(signed(row.impact()) + " gp"); impact.setForeground(row.impact() < 0 ? RED : GREEN);
+                calculation.setText(row.type() + " · " + numbers.format(row.quantity) + " × " + numbers.format(row.unitPrice) + " gp each");
+                field(0, "Patch", row.patch.replace(" @ ", " · Tile "), Color.WHITE);
+                boolean inferred = row.source.equals("Sack harvest — XP inference");
+                field(1, "Tracking", inferred ? "Estimated from Farming XP — verify sack count" : row.source, inferred ? GOLD : Color.WHITE);
+                String lastTime = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(row.last));
+                boolean sameDay = Instant.ofEpochMilli(row.first).atZone(ZoneId.systemDefault()).toLocalDate()
+                    .equals(Instant.ofEpochMilli(row.last).atZone(ZoneId.systemDefault()).toLocalDate());
+                field(2, "Recorded", row.count + (row.count == 1 ? " entry" : " entries combined") + " · "
+                    + DATE.format(Instant.ofEpochMilli(row.first)) + (row.first == row.last ? "" : "–" + (sameDay ? lastTime : DATE.format(Instant.ofEpochMilli(row.last)))), Color.WHITE);
+            }
+            revalidate(); repaint();
+        }
+
+        private void field(int index, String caption, String value, Color color)
+        {
+            java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+            c.gridx = 0; c.gridy = index; c.anchor = java.awt.GridBagConstraints.NORTHWEST;
+            c.insets = new java.awt.Insets(0, 0, 6, 16);
+            JLabel key = label(caption); key.setForeground(MUTED); fields.add(key, c);
+            c.gridx = 1; c.weightx = 1; c.fill = java.awt.GridBagConstraints.HORIZONTAL;
+            c.insets = new java.awt.Insets(0, 0, 6, 0);
+            JLabel text = label(value); text.setForeground(color); text.setToolTipText(value); fields.add(text, c);
+        }
     }
 
     private JPanel total(String name, long value, Color color, boolean sign)

@@ -52,7 +52,8 @@ public class LedgerPanelTest
             JComboBox<?> filter = find(panel, JComboBox.class);
             filter.setSelectedIndex(1); assertEquals(2, table.getRowCount());
             table.setRowSelectionInterval(1, 1);
-            assertTrue(find(panel, JTextArea.class).getText().contains("Large harvest · B"));
+            assertTrue(hasLabel(panel, "Large harvest"));
+            assertTrue(hasLabel(panel, "B"));
             filter.setSelectedIndex(2); assertEquals(1, table.getRowCount());
             assertEquals("Compost", table.getValueAt(0, 1));
             filter.setSelectedIndex(0); assertEquals(3, table.getRowCount());
@@ -65,8 +66,18 @@ public class LedgerPanelTest
         SwingUtilities.invokeAndWait(() -> {
             LedgerPanel panel = new LedgerPanel(new FarmRun(1));
             assertEquals(0, find(panel, JTable.class).getRowCount());
-            assertTrue(find(panel, JTextArea.class).getText().startsWith("No entries yet"));
+            assertTrue(hasLabel(panel, "No entries yet"));
         });
+    }
+
+    private static boolean hasLabel(Container parent, String text)
+    {
+        for (Component child : parent.getComponents())
+        {
+            if (child instanceof JLabel && text.equals(((JLabel) child).getText())) { return true; }
+            if (child instanceof Container && hasLabel((Container) child, text)) { return true; }
+        }
+        return false;
     }
 
     private static <T extends Component> T find(Container parent, Class<T> kind)

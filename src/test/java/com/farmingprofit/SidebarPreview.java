@@ -40,14 +40,16 @@ public class SidebarPreview
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);
                 capture(panel, output, "logged-out.png");
                 FarmRun ledger = new FarmRun(System.currentTimeMillis());
-                for (int i = 0; i < 13; i++) { ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 1, 6100, false, "Ranarr weed @ 1234,5678", "Sack harvest — XP inference", i * 600L); }
-                ledger.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Ranarr weed @ 1234,5678", "Bottomless compost (half bucket)", 9000);
-                ledger.add(ItemID.COINS, "Planting supplies", 1, 26000, true, "Manual", "Seed cost", 10000);
-                ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", -1, 6100, false, "Manual", "Correct observed count", 11000);
+                for (int i = 0; i < 13; i++) { ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 1, 6100, false, "Ranarr weed @ 1234,5678", "Sack harvest — XP inference", ledger.startedAt + i * 600L); }
+                ledger.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Ranarr weed @ 1234,5678", "Bottomless compost (half bucket)", ledger.startedAt + 9000);
+                ledger.add(ItemID.COINS, "Planting supplies", 1, 26000, true, "Manual", "Seed cost", ledger.startedAt + 10000);
+                ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", -1, 6100, false, "Manual", "Correct observed count", ledger.startedAt + 11000);
                 ledger.warnings.add("Sack yield includes XP-inferred herbs. Verify against the sack before/after harvesting.");
                 LedgerPanel ledgerPanel = new LedgerPanel(ledger);
-                capture(ledgerPanel, output, "ledger.png", 620, 480);
-                capture(ledgerPanel, output, "ledger-compact.png", 520, 400);
+                capture(ledgerPanel, output, "ledger.png", 620, 520);
+                capture(ledgerPanel, output, "ledger-compact.png", 520, 480);
+                selectFirstRow(ledgerPanel);
+                capture(ledgerPanel, output, "ledger-selected.png", 620, 520);
             }
             catch (Exception ex) { throw new RuntimeException(ex); }
         });
@@ -60,8 +62,17 @@ public class SidebarPreview
     {
         panel.setSize(width, height); layout(panel);
         BufferedImage image = new BufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics(); graphics.scale(2, 2); panel.printAll(graphics); graphics.dispose();
+        Graphics2D graphics = image.createGraphics(); graphics.scale(2, 2); panel.paint(graphics); graphics.dispose();
         try (var stream = output.join(name).openOutputStream()) { ImageIO.write(image, "png", stream); }
+    }
+    private static void selectFirstRow(Container container)
+    {
+        for (var child : container.getComponents())
+        {
+            if (child instanceof javax.swing.JTable)
+            { ((javax.swing.JTable) child).setRowSelectionInterval(0, 0); }
+            else if (child instanceof Container) { selectFirstRow((Container) child); }
+        }
     }
     private static void layout(Container container)
     {
