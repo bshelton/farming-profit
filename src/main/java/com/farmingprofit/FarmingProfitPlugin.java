@@ -104,6 +104,7 @@ public class FarmingProfitPlugin extends Plugin
     @Override protected void startUp()
     {
         enabled = true;
+        if (diagnosticsEnabled()) { log.debug("FP diagnostic session started: format=2 automatic={} travel={}", config.automatic(), config.travel()); }
         SwingUtilities.invokeLater(() -> {
             if (!enabled) { return; }
             panel = new FarmingProfitPanel(this);
@@ -122,6 +123,9 @@ public class FarmingProfitPlugin extends Plugin
         });
     }
 
+    private boolean diagnosticsEnabled()
+    { return config.diagnostics() || Boolean.getBoolean("farmingprofit.devDiagnostics"); }
+
     private void resetSignals()
     {
         inventory = null; farmingXp = -1; clearAction(); clearTick();
@@ -135,6 +139,7 @@ public class FarmingProfitPlugin extends Plugin
         {
             // Region loading is normal during a teleport; keep pending consumption across it.
             if (event.getGameState() != GameState.LOADING) { travel.clear(); }
+            if (diagnosticsEnabled()) { log.debug("FP reset: state={} action={} pendingXp={}", event.getGameState(), action, tickXp); }
             resetSignals();
             if (event.getGameState() == GameState.LOGIN_SCREEN)
             {
@@ -214,7 +219,12 @@ public class FarmingProfitPlugin extends Plugin
 
     @Subscribe public void onMenuOptionClicked(MenuOptionClicked event)
     {
-        if (!loaded) { return; }
+        if (!loaded)
+        {
+            if (diagnosticsEnabled() && ("Pick".equalsIgnoreCase(event.getMenuOption()) || "Harvest".equalsIgnoreCase(event.getMenuOption())))
+            { log.debug("FP menu skipped: history not ready loadFailed={}", loadFailed); }
+            return;
+        }
         String option = Text.removeTags(event.getMenuOption()).toLowerCase(Locale.ENGLISH);
         MenuAction type = event.getMenuAction();
         if (type != MenuAction.WIDGET_CONTINUE)
@@ -239,6 +249,8 @@ public class FarmingProfitPlugin extends Plugin
                 farming |= java.util.Arrays.stream(crop.getActions()).anyMatch(a ->
                     "Inspect".equalsIgnoreCase(a) || "Check-health".equalsIgnoreCase(a) || "Rake".equalsIgnoreCase(a));
             }
+            if (diagnosticsEnabled() && (farming || option.startsWith("pick") || option.equals("harvest")))
+            { log.debug("FP object: option={} type={} id={} baseName={} cropName={} varbit={} state={} farming={}", option, type, event.getId(), definition.getName(), crop == null ? null : crop.getName(), definition.getVarbitId(), isFarmingVarbit(definition.getVarbitId()) ? client.getVarbitValue(definition.getVarbitId()) : -1, farming); }
             if (farming)
             {
                 patchPoint = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
@@ -252,7 +264,7 @@ public class FarmingProfitPlugin extends Plugin
                 herbPatch = crop == null ? null : HerbHarvest.fromCrop(patchState, crop.getName());
                 actionUntil = tick + 30;
                 bottomless = Text.removeTags(event.getMenuTarget()).toLowerCase(Locale.ENGLISH).contains("bottomless");
-                if (config.diagnostics()) { log.debug("Farming action={} patch={} object={} crop={} controller={} state={} herb={}", action, patch, event.getId(), crop == null ? null : crop.getName(), definition.getVarbitId(), patchState, herbPatch); }
+                if (diagnosticsEnabled()) { log.debug("Farming action={} patch={} object={} crop={} controller={} state={} herb={}", action, patch, event.getId(), crop == null ? null : crop.getName(), definition.getVarbitId(), patchState, herbPatch); }
                 return;
             }
         }
@@ -271,6 +283,8 @@ public class FarmingProfitPlugin extends Plugin
                 }
             }
         }
+        if (diagnosticsEnabled() && !action.isEmpty())
+        { log.debug("FP context cancelled: previousAction={} menuType={} menuOption={}", action, type, option); }
         clearAction();
     }
 
@@ -310,14 +324,17 @@ public class FarmingProfitPlugin extends Plugin
         long price = items.getItemPrice(id);
         data.active.add(id, items.getItemComposition(id).getName(), 1, price, true, "Travel", "Teleport item consumed", System.currentTimeMillis());
         if (price == 0) { data.active.warnings.add("Travel item has no GE price; add a manual travel cost if needed."); }
-        if (config.diagnostics()) { log.debug("Travel consumption: item={} cost={}", id, price); }
+        if (diagnosticsEnabled()) { log.debug("Travel consumption: item={} cost={}", id, price); }
         save(); refresh();
     }
 
     @Subscribe public void onStatChanged(StatChanged event)
     {
         if (event.getSkill() != Skill.FARMING) { return; }
-        if (farmingXp >= 0) { tickXp += Math.max(0, event.getXp() - farmingXp); }
+        int delta = farmingXp < 0 ? 0 : Math.max(0, event.getXp() - farmingXp);
+        tickXp += delta;
+        if (diagnosticsEnabled() && (delta > 0 || farmingXp < 0))
+        { log.debug("FP farming XP: delta={} baselineKnown={} tickXp={} action={} herb={} loaded={} tick={}", delta, farmingXp >= 0, tickXp, action, herbPatch, loaded, tick); }
         farmingXp = event.getXp();
     }
 
@@ -326,7 +343,6 @@ public class FarmingProfitPlugin extends Plugin
         if (!loaded || action.isEmpty() || tick > actionUntil) { return; }
         if (event.getType() != ChatMessageType.SPAM && event.getType() != ChatMessageType.GAMEMESSAGE) { return; }
         String text = Text.removeTags(event.getMessage());
-        if (config.diagnostics()) { log.debug("Farming signal [{}]: {}", action, text); }
         String herb = HarvestSignals.sackHerb(text);
         if (herb != null && action.equals("harvest"))
         {
@@ -341,6 +357,8 @@ public class FarmingProfitPlugin extends Plugin
             compostItem = "ultra".equalsIgnoreCase(kind) ? ItemID.BUCKET_ULTRACOMPOST
                 : "super".equalsIgnoreCase(kind) ? ItemID.BUCKET_SUPERCOMPOST : ItemID.BUCKET_COMPOST;
         }
+        if (diagnosticsEnabled() && (herb != null || text.startsWith("You pick ") || text.startsWith("You harvest ") || compostItem != -1))
+        { log.debug("FP chat evidence: action={} sackHerb={} harvestMessage={} compostItem={}", action, herb, harvestMessage, compostItem); }
         if (text.startsWith("The ") && text.contains("has been treated with") && data.active != null)
         { data.active.warnings.add("Fertile Soil spell supplies need a manual cost adjustment."); }
     }
@@ -354,11 +372,23 @@ public class FarmingProfitPlugin extends Plugin
         if (!key.equals(account)) { loadAccount(key); return; }
         if (!loaded) { return; }
         Map<Integer, Integer> now = snapshot();
-        if (inventory == null) { inventory = now; farmingXp = client.getSkillExperience(Skill.FARMING); clearTick(); return; }
+        if (inventory == null) { if (diagnosticsEnabled()) { log.debug("FP inventory baseline reset: discardedTickXp={}", tickXp); } inventory = now; farmingXp = client.getSkillExperience(Skill.FARMING); clearTick(); return; }
         boolean context = patchPoint != null && tick <= actionUntil && client.getLocalPlayer() != null
             && patchPoint.distanceTo(client.getLocalPlayer().getWorldLocation()) <= 12;
         boolean evidence = tickXp > 0 || harvestMessage || !sack.isEmpty();
         boolean changed = false;
+        if (diagnosticsEnabled() && evidence)
+        {
+            String reason = patchPoint == null ? "no-patch-context" : tick > actionUntil ? "context-expired"
+                : client.getLocalPlayer() == null ? "no-local-player"
+                : !context ? "too-far-from-patch" : !action.equals("harvest") ? "not-harvesting"
+                : herbPatch == null ? "unknown-herb" : !hasOpenSack(now) ? "no-open-sack"
+                : !normalXpWorld() ? "unsupported-xp-world" : "eligible";
+            log.debug("FP harvest gate: reason={} action={} herb={} tickXp={} tick={} expires={} activeRun={} automatic={} sackIds={}",
+                reason, action, herbPatch, tickXp, tick, actionUntil, data.active != null, config.automatic(),
+                now.keySet().stream().filter(id -> id == ItemID.SLAYER_HERB_SACK || id == ItemID.SLAYER_HERB_SACK_OPEN
+                    || id == ItemID.SLAYER_HERB_SACK_SILK || id == ItemID.SLAYER_HERB_SACK_SILK_OPEN).collect(java.util.stream.Collectors.toList()));
+        }
         if (context)
         {
             if (evidence) { actionUntil = tick + 30; }
@@ -371,13 +401,13 @@ public class FarmingProfitPlugin extends Plugin
                 }
             }
             boolean inferredHarvest = false;
-            if (config.diagnostics() && action.equals("harvest") && tickXp > 0)
+            if (diagnosticsEnabled() && action.equals("harvest") && tickXp > 0)
             { log.debug("Harvest eligibility: herb={} xp={} openSack={} normalXp={}", herbPatch, tickXp, hasOpenSack(now), normalXpWorld()); }
             if (action.equals("harvest") && herbPatch != null && hasOpenSack(now) && normalXpWorld())
             {
                 int observed = gains.getOrDefault(herbPatch.itemId, 0);
                 int missing = herbPatch.missingCount(tickXp, outfitMultiplier(), observed);
-                if (config.diagnostics() && tickXp > 0) { log.debug("Herb reconciliation: herb={} xp={} observed={} missing={}", herbPatch, tickXp, observed, missing); }
+                if (diagnosticsEnabled() && tickXp > 0) { log.debug("FP herb reconciliation: herb={} xp={} multiplier={} inferred={} observed={} missing={} reason={}", herbPatch, tickXp, outfitMultiplier(), herbPatch.inferredCount(tickXp, outfitMultiplier()), observed, missing, herbPatch.inferredCount(tickXp, outfitMultiplier()) == 0 ? "xp-not-matched" : missing == 0 ? "already-observed" : "record-inferred"); }
                 if (missing > 0)
                 {
                     inferredHarvest = record(herbPatch.itemId, missing, false, "Sack harvest — XP inference", -1);
@@ -461,10 +491,15 @@ public class FarmingProfitPlugin extends Plugin
 
     private boolean record(int id, int count, boolean cost, String source, long override)
     {
-        if (!ensureRun()) { return false; }
+        if (!ensureRun())
+        {
+            if (diagnosticsEnabled()) { log.debug("FP record skipped: item={} count={} loaded={} loadFailed={} automatic={}", id, count, loaded, loadFailed, config.automatic()); }
+            return false;
+        }
         long price = override >= 0 ? override : id == ItemID.COINS ? 1 : items.getItemPrice(id);
         String name = items.getItemComposition(id).getName();
         data.active.add(id, name, count, price, cost, patch, source, System.currentTimeMillis());
+        if (diagnosticsEnabled()) { log.debug("FP ledger recorded: item={} count={} unitPrice={} cost={} source={}", id, count, price, cost, source); }
         if (price == 0) { data.active.warnings.add("No GE price for " + name + "; valued at 0 gp. Add a correction if needed."); }
         return true;
     }

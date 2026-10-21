@@ -10,6 +10,22 @@ The inference gate required the crop name `Herbs`; the reported ledger used `Ran
 
 Retest after restart: enable Farming diagnostics, check the sack count, harvest a ranarr patch with the sack open, then check the sack again. The ledger should match the increase and label inferred entries `Sack harvest — XP inference`. Check that no missing-produce warning appears for successfully inferred picks. Existing missed harvests are not retroactively reconstructed; use a manual correction for the reported ten herbs if needed.
 
+Follow-up: another eight ranarr herbs were missed after the named-crop fix. The existing log had no farming diagnostics, so the cause remains unresolved.
+
+## Diagnostic capture
+
+The development launcher now enables diagnostics automatically via a development-only system property. Normal plugin installations retain the optional Farming diagnostics setting. Logging stays at DEBUG and is event-driven, not per frame or idle tick.
+
+After restarting the development client, harvest one patch with an open sack and report the approximate time and actual herb count. The trace includes object/controller/state identification, XP deltas, context cancellation/reset, sack item IDs, rejection reasons, XP reconciliation and ledger writes. It does not log player chat, account identifiers, or the full inventory. Checking the sack is only needed to verify the count, not to trigger capture.
+
+For the local development launch redirected to `/tmp/farming-profit-dev-client.log`, filter with:
+
+```sh
+rg 'FP |Farming action=|Harvest eligibility:|Travel consumption:' /tmp/farming-profit-dev-client.log
+```
+
+Confirm `FP diagnostic session started: format=2` appears after startup. Preserve the relevant trace before restarting a launch that overwrites that file. No automatic inference fix is considered verified until the user confirms the live count.
+
 Run `./gradlew run`, enable Farming Profit and optionally enable Farming diagnostics. For Jagex Accounts use https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts. Perform all game actions yourself; the project never automates game input.
 
 Record client version, crop, location, outfit, initial/final quantities and review warnings. Do not publish credentials or unrelated logs.
