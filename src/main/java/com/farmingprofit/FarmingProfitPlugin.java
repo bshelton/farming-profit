@@ -320,6 +320,12 @@ public class FarmingProfitPlugin extends Plugin
             travel.clear();
             if (data.active != null && config.travel() && (type == MenuAction.CC_OP || type == MenuAction.CC_OP_LOW_PRIORITY))
             { travel.begin(event.getItemId(), option, inventoryCount(event.getItemId()), System.currentTimeMillis()); }
+            if (diagnosticsEnabled() && TravelCosts.supports(event.getItemId()))
+            {
+                log.debug("FP travel click: item={} option={} type={} count={} active={} enabled={} armed={}",
+                    event.getItemId(), option, type, inventoryCount(event.getItemId()),
+                    data.active != null, config.travel(), travel.pendingItem() >= 0);
+            }
         }
         // Dialog choices may complete a gardener payment; all other non-patch actions cancel context.
         if (type == MenuAction.WIDGET_CONTINUE || type == MenuAction.CC_OP && "pay".equals(action)
@@ -442,7 +448,11 @@ public class FarmingProfitPlugin extends Plugin
         { updateReminders(); }
         if (event.getContainerId() != InventoryID.INV || travel.pendingItem() < 0) { return; }
         if (!enabled || !loaded || data.active == null || trackingPaused() || !config.travel()) { travel.clear(); return; }
-        int id = travel.consumed(inventoryCount(travel.pendingItem()), System.currentTimeMillis());
+        int pending = travel.pendingItem();
+        int remaining = inventoryCount(pending);
+        int id = travel.consumed(remaining, System.currentTimeMillis());
+        if (diagnosticsEnabled())
+        { log.debug("FP travel inventory: item={} remaining={} consumed={} pending={}", pending, remaining, id >= 0, travel.pendingItem() >= 0); }
         if (id < 0) { return; }
         long price = items.getItemPrice(id);
         data.active.add(id, items.getItemComposition(id).getName(), 1, price, true, "Travel", "Teleport item consumed", System.currentTimeMillis());

@@ -137,3 +137,11 @@ Sack counting, repeat dragonfruit harvest, costs, account separation and event-o
 - Regression tests cover snapshot isolation and JSON compatibility, history reuse with 1,000 completed runs, pending-write replacement/account separation, and pagination/component reuse. These are structural performance checks, not live CPU/FPS measurements.
 - Remaining scale limits: each save still atomically rewrites the full JSON file in the background; exceptionally large histories increase disk work, startup parsing and the one-time history snapshot/total calculation. The current-run display still rebuilds after ledger changes. Live profiling is required before making numeric CPU or FPS claims.
 - Live retest: harvest into an open sack, verify counts/costs, pause/resume, finish a run, browse History, restart and confirm persistence. Observe responsiveness while harvesting and switching sidebar tabs.
+
+## Basalt destination actions (2026-10-21, awaiting live retest)
+
+- Live trace showed a `troll stronghold` inventory action followed by travel, but the old tracker only accepted generic Break/Teleport/Outside actions. No cost was recorded.
+- Recognize Stony basalt's Troll Stronghold, Troll Stronghold entrance and Troll Stronghold roof actions, and Icy basalt's Weiss action, restricted to the corresponding item. Still require consumption of exactly one item within 15 seconds during an active, unpaused run.
+- References: [Stony basalt](https://oldschool.runescape.wiki/w/Stony_basalt) and [Icy basalt](https://oldschool.runescape.wiki/w/Icy_basalt), checked 2026-10-21.
+- Regression tests cover the destination actions, mismatched items, unchanged counts, duplicate events, expiry, cancellation and unexpected quantity changes. Optional diagnostics now report travel clicks and pending inventory reconciliation.
+- Live retest after restarting: use each basalt during a run and verify one Travel cost at the GE unit price. Test the explicit roof/entrance options if available. Toggle, dropping, and a blocked teleport must not add a cost; paused runs must not track travel.

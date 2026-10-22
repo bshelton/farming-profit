@@ -11,11 +11,27 @@ public class TravelCostsTest
         for (int id : new int[]{ItemID.WEISS_TELEPORT_BASALT, ItemID.STRONGHOLD_TELEPORT_BASALT})
         {
             TravelCosts costs = new TravelCosts();
-            costs.begin(id, "teleport", 10, 0);
+            costs.begin(id, id == ItemID.WEISS_TELEPORT_BASALT ? "weiss" : "troll stronghold", 10, 0);
             assertEquals(-1, costs.consumed(10, 500));
             assertEquals(id, costs.consumed(9, 1000));
             assertEquals(-1, costs.consumed(9, 1500));
         }
+    }
+
+    @Test public void basaltDestinationActionsAreItemSpecific()
+    {
+        TravelCosts costs = new TravelCosts();
+        for (String option : new String[]{"troll stronghold", "troll stronghold entrance", "troll stronghold roof"})
+        {
+            costs.begin(ItemID.STRONGHOLD_TELEPORT_BASALT, option, 2, 0);
+            assertEquals(ItemID.STRONGHOLD_TELEPORT_BASALT, costs.consumed(1, 1000));
+            costs.begin(ItemID.WEISS_TELEPORT_BASALT, option, 2, 0);
+            assertEquals(-1, costs.consumed(1, 1000));
+            costs.begin(ItemID.POH_TABLET_CAMELOTTELEPORT, option, 2, 0);
+            assertEquals(-1, costs.consumed(1, 1000));
+        }
+        costs.begin(ItemID.STRONGHOLD_TELEPORT_BASALT, "weiss", 2, 0);
+        assertEquals(-1, costs.consumed(1, 1000));
     }
 
     @Test public void tabletsAndScrollsCountActualConsumption()
@@ -32,7 +48,7 @@ public class TravelCostsTest
     @Test public void depositingDroppingAndUnrelatedItemsDoNotCount()
     {
         TravelCosts costs = new TravelCosts();
-        for (String option : new String[]{"deposit-1", "drop", "use", "examine"})
+        for (String option : new String[]{"deposit-1", "drop", "use", "examine", "toggle"})
         {
             costs.begin(ItemID.WEISS_TELEPORT_BASALT, option, 10, 0);
             assertEquals(-1, costs.consumed(9, 1000));
@@ -44,14 +60,14 @@ public class TravelCostsTest
     @Test public void cancelledExpiredAndUnexpectedInventoryChangesDoNotCount()
     {
         TravelCosts costs = new TravelCosts();
-        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "teleport", 10, 0);
+        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "weiss", 10, 0);
         costs.clear();
         assertEquals(-1, costs.consumed(9, 1000));
-        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "teleport", 10, 0);
+        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "weiss", 10, 0);
         assertEquals(-1, costs.consumed(9, 15001));
-        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "teleport", 10, 0);
+        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "weiss", 10, 0);
         assertEquals(-1, costs.consumed(0, 1000));
-        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "teleport", 10, 0);
+        costs.begin(ItemID.WEISS_TELEPORT_BASALT, "weiss", 10, 0);
         assertEquals(-1, costs.consumed(11, 1000));
         assertEquals(-1, costs.consumed(9, 2000));
     }

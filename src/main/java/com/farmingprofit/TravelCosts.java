@@ -75,15 +75,26 @@ final class TravelCosts
 
     void clear() { itemId = -1; }
     int pendingItem() { return itemId; }
+    static boolean supports(int id) { return ITEMS.contains(id); }
 
     void begin(int id, String option, int count, long now)
     {
         clear();
-        if (ITEMS.contains(id) && count > 0
-            && (option.equals("break") || option.equals("teleport") || option.equals("outside")))
+        if (supports(id) && count > 0 && isTeleportAction(id, option))
         {
             itemId = id; before = count; expires = now + 15_000;
         }
+    }
+
+    private static boolean isTeleportAction(int id, String option)
+    {
+        if (id == ItemID.STRONGHOLD_TELEPORT_BASALT)
+        {
+            return option.equals("troll stronghold") || option.equals("troll stronghold entrance")
+                || option.equals("troll stronghold roof");
+        }
+        if (id == ItemID.WEISS_TELEPORT_BASALT) { return option.equals("weiss"); }
+        return option.equals("break") || option.equals("teleport") || option.equals("outside");
     }
 
     int consumed(int count, long now)
