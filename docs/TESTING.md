@@ -145,3 +145,9 @@ Sack counting, repeat dragonfruit harvest, costs, account separation and event-o
 - References: [Stony basalt](https://oldschool.runescape.wiki/w/Stony_basalt) and [Icy basalt](https://oldschool.runescape.wiki/w/Icy_basalt), checked 2026-10-21.
 - Regression tests cover the destination actions, mismatched items, unchanged counts, duplicate events, expiry, cancellation and unexpected quantity changes. Optional diagnostics now report travel clicks and pending inventory reconciliation.
 - Live retest after restarting: use each basalt during a run and verify one Travel cost at the GE unit price. Test the explicit roof/entrance options if available. Toggle, dropping, and a blocked teleport must not add a cost; paused runs must not track travel.
+
+## Weiss player Lookup interruption (2026-10-21, awaiting live retest)
+
+- At Weiss `(2848,3934)`, the first ranarr pick was recorded at 23:14:45. A `RUNELITE_PLAYER` Lookup action at 23:14:46 cleared the patch context; later harvest XP was ignored. The trace is consistent with 13 herbs total, only one recorded; the actual yield has not been user-confirmed.
+- Client-only RuneLite menu actions now preserve farming context. Tests cover those action types and ensure ordinary player interactions, walking and inventory operations still cancel.
+- Live retest after restart: harvest into an open sack, use player Lookup while picking, and compare the full ledger increase with the actual sack increase.

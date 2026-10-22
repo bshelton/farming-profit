@@ -409,6 +409,12 @@ public class FarmingProfitPlugin extends Plugin
 
     static boolean preservesFarmingContext(MenuAction type)
     {
+        // Client-only menus (for example player Lookup) do not interrupt server-side harvesting.
+        if (type == MenuAction.RUNELITE || type == MenuAction.RUNELITE_PLAYER
+            || type == MenuAction.RUNELITE_WIDGET || type == MenuAction.RUNELITE_HIGH_PRIORITY
+            || type == MenuAction.RUNELITE_LOW_PRIORITY || type == MenuAction.RUNELITE_OVERLAY
+            || type == MenuAction.RUNELITE_OVERLAY_CONFIG || type == MenuAction.RUNELITE_INFOBOX)
+        { return true; }
         return type == MenuAction.CANCEL || type == MenuAction.WIDGET_TARGET
             || type == MenuAction.EXAMINE_OBJECT || type == MenuAction.EXAMINE_NPC
             || type == MenuAction.EXAMINE_ITEM || type == MenuAction.EXAMINE_ITEM_GROUND;

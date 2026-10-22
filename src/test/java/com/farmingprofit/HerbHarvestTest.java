@@ -97,6 +97,13 @@ public class HerbHarvestTest
     }
     @Test public void menuDismissalAndItemSelectionKeepHarvestContext()
     {
+        for (net.runelite.api.MenuAction type : new net.runelite.api.MenuAction[]{
+            net.runelite.api.MenuAction.RUNELITE, net.runelite.api.MenuAction.RUNELITE_PLAYER,
+            net.runelite.api.MenuAction.RUNELITE_WIDGET, net.runelite.api.MenuAction.RUNELITE_HIGH_PRIORITY,
+            net.runelite.api.MenuAction.RUNELITE_LOW_PRIORITY, net.runelite.api.MenuAction.RUNELITE_OVERLAY,
+            net.runelite.api.MenuAction.RUNELITE_OVERLAY_CONFIG, net.runelite.api.MenuAction.RUNELITE_INFOBOX})
+        { assertTrue(FarmingProfitPlugin.preservesFarmingContext(type, 0, "lookup")); }
+        assertFalse(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.PLAYER_FIRST_OPTION));
         assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.CANCEL));
         assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.EXAMINE_OBJECT));
         assertTrue(FarmingProfitPlugin.preservesFarmingContext(net.runelite.api.MenuAction.WIDGET_TARGET));
