@@ -2,6 +2,12 @@
 
 Status: live testing in progress; herb-sack acceptance is still pending. A successful build is not a live-game test.
 
+## Confirmed live result: Morytania, 2026-10-21
+
+At 23:10 EDT, the user harvested ranarr at (3605,3529) with an open herb sack. The ledger recorded 11 inferred herbs; the user confirmed the sack contained 11 after this first patch. The trace shows ten alternating 30/31 XP picks and a final 57 XP pick with depleted patch state 3. Each produced exactly one ledger herb. Outfit and patch multipliers were both 1.0.
+
+The trace also recorded one ranarr seed (26,646 gp) and one bottomless ultracompost application (215 gp) after harvesting. Those cost events were observed in diagnostics; their quantities/prices have not been independently confirmed by the user. This passes this single Morytania open-sack harvest, not the full crop/location/overflow acceptance matrix. The run was still active.
+
 ## Reported failure: 2026-10-21
 
 An open sack received 10 ranarr herbs at the Trollheim patch (ledger location 2848,3934), but the plugin recorded no harvest. The run displayed 371 total Farming XP and one bottomless ultracompost use; total run XP alone is not enough to reconstruct harvest quantities.
