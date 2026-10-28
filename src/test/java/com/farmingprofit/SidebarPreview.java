@@ -39,6 +39,11 @@ public class SidebarPreview
                 capture(panel, output, "empty.png");
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);
                 capture(panel, output, "logged-out.png");
+                FarmingProfitPlugin.Data history = new FarmingProfitPlugin.Data();
+                history.history.add(data.active.snapshot());
+                panel.render(history, "Saved locally | GE estimates", true);
+                selectHistory(panel);
+                capture(panel, output, "history.png");
                 FarmRun ledger = new FarmRun(System.currentTimeMillis());
                 for (int i = 0; i < 13; i++) { ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 1, 6100, false, "Ranarr weed @ 1234,5678", "Sack harvest — XP inference", ledger.startedAt + i * 600L); }
                 ledger.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Ranarr weed @ 1234,5678", "Bottomless compost (half bucket)", ledger.startedAt + 9000);
@@ -72,6 +77,14 @@ public class SidebarPreview
             if (child instanceof javax.swing.JTable)
             { ((javax.swing.JTable) child).setRowSelectionInterval(0, 0); }
             else if (child instanceof Container) { selectFirstRow((Container) child); }
+        }
+    }
+    private static void selectHistory(Container container)
+    {
+        for (var child : container.getComponents())
+        {
+            if (child instanceof javax.swing.JTabbedPane) { ((javax.swing.JTabbedPane) child).setSelectedIndex(1); }
+            else if (child instanceof Container) { selectHistory((Container) child); }
         }
     }
     private static void layout(Container container)

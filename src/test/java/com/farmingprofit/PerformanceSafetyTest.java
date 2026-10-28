@@ -103,6 +103,11 @@ public class PerformanceSafetyTest
             assertEquals(5, runButtons(panel).size());
             button(panel, "Previous").doClick(0);
             assertEquals(25, runButtons(panel).size());
+            while (!live.history.isEmpty())
+            { assertTrue(live.deleteHistory(1, 1, live.history.get(0).id)); }
+            panel.render(live.snapshot(), "Saved locally", true);
+            assertTrue(runButtons(panel).isEmpty());
+            assertFalse(buttons(panel).stream().anyMatch(b -> "Delete".equals(b.getText())));
         });
     }
 

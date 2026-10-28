@@ -159,3 +159,9 @@ Sack counting, repeat dragonfruit harvest, costs, account separation and event-o
 - At Weiss `(2848,3934)`, the first ranarr pick was recorded at 23:14:45. A `RUNELITE_PLAYER` Lookup action at 23:14:46 cleared the patch context; later harvest XP was ignored. The trace is consistent with 13 herbs total, only one recorded; the actual yield has not been user-confirmed.
 - Client-only RuneLite menu actions now preserve farming context. Tests cover those action types and ensure ordinary player interactions, walking and inventory operations still cancel.
 - Live retest after restart: harvest into an open sack, use player Lookup while picking, and compare the full ledger increase with the actual sack increase.
+
+## Saved-run deletion (2026-10-28, awaiting live validation)
+
+The user confirmed the completed full run appears correctly in History. Each History row now has a Delete button. Confirmation identifies the date and estimated profit, defaults to Keep run, and removes only that saved run. The history total and pagination refresh; the active run remains untouched. Account-generation checks reject confirmations from an earlier login/profile. Deletion uses the existing asynchronous atomic save and save-failure status.
+
+Automated tests verify stale-session rejection, exact run selection, snapshot invalidation, persistence after reload, preservation of other runs and the active run, and deletion down to an empty paginated history. A standalone Swing preview verifies the narrow History layout. Live test with a disposable completed run: cancel once, then delete; confirm the total updates and the deletion remains after restart.

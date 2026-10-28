@@ -29,6 +29,30 @@ public class HistoryStoreTest
         assertFalse(root().join("profile-a.pending").exists());
     }
 
+    @Test public void deletedHistoryStaysDeletedWithoutChangingActiveOrOtherRuns() throws Exception
+    {
+        FarmingProfitPlugin.Data live = data(13);
+        FarmRun removed = new FarmRun(10), kept = new FarmRun(20);
+        live.history.add(removed); live.history.add(kept);
+        FarmingProfitPlugin.Data before = live.snapshot();
+        store.save(root(), "a", before);
+        assertFalse(live.deleteHistory(1, 2, removed.id));
+        assertFalse(live.deleteHistory(2, 2, live.active.id));
+        assertEquals(2, live.history.size());
+        assertTrue(live.deleteHistory(2, 2, removed.id));
+        assertFalse(live.deleteHistory(2, 2, removed.id));
+        assertEquals(2, before.history.size());
+        assertEquals(1, live.snapshot().history.size());
+        store.save(root(), "a", live.snapshot());
+        FarmingProfitPlugin.Data restored = store.load(root(), "a");
+        assertEquals(1300, restored.active.profit());
+        assertEquals(1, restored.history.size());
+        assertEquals(kept.id, restored.history.get(0).id);
+        assertTrue(restored.deleteHistory(2, 2, kept.id));
+        store.save(root(), "a", restored.snapshot());
+        assertTrue(store.load(root(), "a").history.isEmpty());
+    }
+
     @Test public void backupRetainsSessionStartAndRotatesAfterNextLoad() throws Exception
     {
         store.save(root(), "a", data(1).snapshot());

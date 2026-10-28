@@ -242,7 +242,16 @@ final class FarmingProfitPanel extends PluginPanel
             {
                 JButton button = button("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp</html>");
                 button.setHorizontalAlignment(SwingConstants.LEFT);
-                button.addActionListener(e -> showLedger(run)); history.add(fit(button)); history.add(Box.createVerticalStrut(6));
+                button.addActionListener(e -> showLedger(run));
+                long generation = accountGeneration;
+                JButton remove = button("Delete");
+                remove.setForeground(new Color(244, 151, 145));
+                remove.setEnabled(historyReady);
+                remove.getAccessibleContext().setAccessibleName("Delete run from " + DATE.format(Instant.ofEpochMilli(run.startedAt)));
+                remove.addActionListener(e -> deleteHistoryRun(run, generation));
+                JPanel entry = new JPanel(new BorderLayout(6, 0)); entry.setOpaque(false);
+                entry.add(button, BorderLayout.CENTER); entry.add(remove, BorderLayout.EAST);
+                history.add(fit(entry)); history.add(Box.createVerticalStrut(6));
             }
             if (renderedHistory.size() > HISTORY_PAGE_SIZE)
             {
@@ -296,6 +305,18 @@ final class FarmingProfitPanel extends PluginPanel
             "Delete current run", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
             null, choices, choices[0]);
         if (choice == 1) { plugin.deleteManual(generation, expectedId); }
+    }
+
+    private void deleteHistoryRun(FarmRun run, long generation)
+    {
+        Object[] choices = {"Keep run", "Delete run"};
+        int choice = JOptionPane.showOptionDialog(this,
+            "Delete the run from " + DATE.format(Instant.ofEpochMilli(run.startedAt))
+                + "?\nEstimated profit: " + numbers.format(run.profit())
+                + " gp\nAll entries in this saved run will be removed. This cannot be undone.",
+            "Delete saved run", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+            null, choices, choices[0]);
+        if (choice == 1) { plugin.deleteHistoryManual(generation, run.id); }
     }
 
     private void showHelp()

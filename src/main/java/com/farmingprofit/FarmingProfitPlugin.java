@@ -96,7 +96,7 @@ public class FarmingProfitPlugin extends Plugin
 
         Data snapshot()
         {
-            // Completed runs are never edited. Rebuild this cache only when a run finishes.
+            // Completed runs are immutable; invalidate the cache when history membership changes.
             if (historySnapshot == null || historySnapshot.size() != history.size())
             {
                 List<FarmRun> copy = new ArrayList<>(history.size());
@@ -122,6 +122,14 @@ public class FarmingProfitPlugin extends Plugin
             if (active == null || !active.id.equals(expectedId)) { return false; }
             active = null;
             return true;
+        }
+
+        boolean deleteHistory(long expectedGeneration, long currentGeneration, String expectedId)
+        {
+            if (expectedGeneration != currentGeneration || expectedId == null) { return false; }
+            boolean removed = history.removeIf(run -> expectedId.equals(run.id));
+            if (removed) { historySnapshot = null; }
+            return removed;
         }
 
         void validate()
@@ -739,6 +747,15 @@ public class FarmingProfitPlugin extends Plugin
             if (!canEdit(generation, expectedId) || !data.deleteActive(expectedId)) { return; }
             clearReminders();
             freshTrackingBaseline(); save(); refresh();
+        });
+    }
+
+    void deleteHistoryManual(long generation, String expectedId)
+    {
+        clientThread.invoke(() -> {
+            if (!currentProfile() || client.getGameState() != GameState.LOGGED_IN
+                || !data.deleteHistory(generation, accountGeneration, expectedId)) { return; }
+            save(); refresh();
         });
     }
     boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel(),
