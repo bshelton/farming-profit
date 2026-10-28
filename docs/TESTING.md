@@ -2,6 +2,14 @@
 
 Status: live testing in progress; herb-sack acceptance is still pending. A successful build is not a live-game test.
 
+## Full-run smoke test: 2026-10-28
+
+User completed a full run and reported it "seems good." The development trace recorded 95 ranarr across nine patches: Weiss 8, Troll Stronghold 10, Morytania 11, Varlamore 7, Hosidius 12, Falador 9, Catherby 14, Ardougne 10 and Farming Guild 14. Of those, 83 were inferred sack picks and 12 were observed inventory gains; observed picks were not also charged as inferred harvests. There were no unmatched herb-XP reconciliation events or plugin WARN/ERROR lines in this session.
+
+Travel consumption recorded one icy basalt (1,376 gp), one stony basalt (970 gp), and one tablet (458 gp). Nine ranarr seeds and 12 bottomless ultracompost applications were recorded, along with other crop entries. The previously failing Varlamore and Weiss patches both recorded harvests.
+
+This passes a user-reported full-run smoke test and demonstrates live basalt cost capture. Exact per-patch sack/inventory counts were not independently supplied. Player Lookup/sidebar switching, paused/failed travel, lifecycle controls and persistence were not explicitly confirmed by this report and remain separate checks.
+
 ## Confirmed live result: Morytania, 2026-10-21
 
 At 23:10 EDT, the user harvested ranarr at (3605,3529) with an open herb sack. The ledger recorded 11 inferred herbs; the user confirmed the sack contained 11 after this first patch. The trace shows ten alternating 30/31 XP picks and a final 57 XP pick with depleted patch state 3. Each produced exactly one ledger herb. Outfit and patch multipliers were both 1.0.

@@ -45,6 +45,7 @@ Record actual before/after quantities, ledger totals, location and time. A succe
 
 | Check | Expected result | Status |
 | --- | --- | --- |
+| Full run, 2026-10-28 | User reports run seems good; trace records 95 ranarr across nine patches and both basalts plus one tablet | Smoke test passed; exact counts and lifecycle checks pending |
 | Morytania open-sack ranarr, 2026-10-21 23:10 EDT | Ledger and actual sack count both 11, including final pick | Passed for this harvest |
 | Open sack: Hosidius, Farming Guild, Falador and north of Hunter Guild | Exact sack delta, including final pick; no missing/double herbs | Pending |
 | Closed sack and near-full sack overflowing into inventory | Exact inventory plus sack delta | Pending |
