@@ -2,7 +2,7 @@
 
 A farming-only RuneLite plugin for harvest value, supply costs and local run history.
 
-**Experimental prototype. Not submitted to or approved for the Plugin Hub. Live game detection requires player validation.**
+**Experimental prototype. [Plugin Hub submission is in draft](https://github.com/runelite/plugin-hub/pull/19631); not approved or published. Remaining live checks are documented below.**
 
 See [release readiness](docs/RELEASE_READINESS.md) for completed code hardening and the remaining live validation gates.
 
@@ -24,7 +24,7 @@ See [release readiness](docs/RELEASE_READINESS.md) for completed code hardening 
 
 The prototype combines inventory gains and optional sack messages with an **XP inference fallback**. It identifies the clicked herb patch, observes Farming XP, accounts for the Farmer's outfit and Falador Diary bonus, separates final-pick completion XP, and records only the additional herbs not already observed in inventory or messages.
 
-**Visible chat messages are not required by the fallback.** XP-inferred entries are labelled and produce a review warning. This is not a direct read of sack contents and has not been verified in-game. Unknown crop state, unexpected XP or the 200m XP cap can prevent a reliable count. Inference is disabled on seasonal, Deadman and tournament worlds. Verify sack contents before/after a harvest and use corrections for mismatches.
+**Visible chat messages are not required by the fallback.** XP-inferred entries are labelled and produce a review warning. This is not a direct read of sack contents ; a full-run smoke test and a count-confirmed Morytania harvest are documented in [TESTING](docs/TESTING.md). Broader exact-count validation remains pending. Unknown crop state, unexpected XP or the 200m XP cap can prevent a reliable count. Inference is disabled on seasonal, Deadman and tournament worlds. Verify sack contents before/after a harvest and use corrections for mismatches.
 
 ## Accounting
 
