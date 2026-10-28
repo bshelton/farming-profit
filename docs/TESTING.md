@@ -64,7 +64,7 @@ Live audit checks: harvest while switching tabs/checking the sack, immediately r
 
 Remaining boundaries: 200m Farming XP prevents silent-sack inference; unsupported boosted worlds disable it; rune-pouch spells, jewellery charges, master scroll-book uses and seed-box consumption still require manual entries. Cross-tick delivery of XP versus inventory/patch-state events needs live validation. No historical missed harvest is reconstructed automatically.
 
-Run `./gradlew run`, enable Farming Profit and optionally enable Farming diagnostics. For Jagex Accounts use https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts. Perform all game actions yourself; the project never automates game input.
+Run `./gradlew run`, enable Farming Run Profit and optionally enable Farming diagnostics. For Jagex Accounts use https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts. Perform all game actions yourself; the project never automates game input.
 
 Record client version, crop, location, outfit, initial/final quantities and review warnings. Do not publish credentials or unrelated logs.
 

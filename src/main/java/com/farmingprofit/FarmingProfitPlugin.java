@@ -34,7 +34,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 @Slf4j
-@PluginDescriptor(name = "Farming Profit", internalName = "farming-profit",
+@PluginDescriptor(name = "Farming Run Profit", internalName = "farming-profit",
     description = "Farming-only harvest, supply cost and run history tracker",
     tags = {"farming", "profit", "herbs", "harvest", "fruit", "cactus"})
 public class FarmingProfitPlugin extends Plugin
@@ -171,7 +171,7 @@ public class FarmingProfitPlugin extends Plugin
         SwingUtilities.invokeLater(() -> {
             if (!enabled || lifecycle != lifecycleGeneration) { return; }
             panel = new FarmingProfitPanel(this);
-            navigation = NavigationButton.builder().tooltip("Farming Profit").icon(BrandAssets.MARK).priority(7).panel(panel).build();
+            navigation = NavigationButton.builder().tooltip("Farming Run Profit").icon(BrandAssets.MARK).priority(7).panel(panel).build();
             toolbar.addNavigation(navigation);
         });
         clientThread.invoke(() -> { if (enabled && lifecycle == lifecycleGeneration) { resetSignals(); refresh(); } });

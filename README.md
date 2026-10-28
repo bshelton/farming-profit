@@ -1,4 +1,4 @@
-# Farming Profit
+# Farming Run Profit
 
 A farming-only RuneLite plugin for harvest value, supply costs and local run history.
 

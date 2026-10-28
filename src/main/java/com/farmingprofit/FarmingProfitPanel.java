@@ -65,7 +65,7 @@ final class FarmingProfitPanel extends PluginPanel
         JPanel content = column();
         JPanel heading = new JPanel(new BorderLayout(4, 0));
         heading.setOpaque(false);
-        JLabel title = new JLabel("Farming Profit");
+        JLabel title = new JLabel("<html>Farming Run<br>Profit</html>");
         title.setIcon(new ImageIcon(BrandAssets.MARK)); title.setIconTextGap(6);
         title.setFont(BODY.deriveFont(Font.BOLD, 14)); title.setForeground(GOLD);
         heading.add(title, BorderLayout.CENTER);
@@ -392,7 +392,7 @@ final class FarmingProfitPanel extends PluginPanel
         JSpinner idle = new JSpinner(new SpinnerNumberModel(plugin.idleMinutes(), 1, 60, 1));
         JPanel form = new JPanel(new GridLayout(0, 1)); form.add(automatic); form.add(compost); form.add(travel); form.add(diagnostics); form.add(new JLabel("Finish after idle minutes")); form.add(idle);
         form.add(secateurs); form.add(sack); form.add(paused); form.add(outline);
-        if (JOptionPane.showConfirmDialog(this, form, "Farming Profit settings", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
+        if (JOptionPane.showConfirmDialog(this, form, "Farming Run Profit settings", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
         {
             try { idle.commitEdit(); } catch (java.text.ParseException ex) { return; }
             plugin.updateSettings(automatic.isSelected(), compost.isSelected(), diagnostics.isSelected(), travel.isSelected(), (Integer) idle.getValue());
