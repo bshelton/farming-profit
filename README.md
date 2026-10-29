@@ -11,6 +11,8 @@ See [release readiness](docs/RELEASE_READINESS.md) for completed code hardening 
 ## Features
 
 - Run and History tabs, settings, automatic/manual runs and idle completion.
+- History grouped by local start date, with estimated profit, elapsed time and recorded patch locations. Older/newer controls display 25 runs at a time. Select a run for its ledger, location totals, or deletion.
+- Friendly area names are derived from stored patch coordinates, including old history. Unknown areas keep their coordinates; travel and manual entries remain separate. Patch counts are distinct recorded tiles, not verified completed patches. Elapsed time includes pauses and time until the run finished.
 - Pause/resume preserves the current run across restarts and suspends automatic tracking and idle completion. Manual corrections remain available. Resume starts fresh, excluding activity during the pause.
 - Delete the current run with confirmation without saving it to History. A later farming interaction can automatically start a new run.
 - Optional contextual sidebar reminders for missing magic secateurs, a closed herb sack and farming while paused. Secateurs in inventory or equipment count. Each reminder has its own setting; a closed-sack inventory outline is separately opt-in.

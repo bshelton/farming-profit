@@ -264,7 +264,8 @@ final class FarmingProfitPanel extends PluginPanel
         {
             if (renderedHistory != data.history)
             {
-                historyPage = 0;
+                if (renderedHistory == null || renderedHistory.isEmpty() || data.history.isEmpty()
+                    || !renderedHistory.get(0).id.equals(data.history.get(0).id)) { historyPage = 0; }
                 historyProfit = data.history.stream().mapToLong(FarmRun::profit).sum();
             }
             renderedHistory = data.history; historyReady = ready; historyMessage = message;
@@ -287,36 +288,60 @@ final class FarmingProfitPanel extends PluginPanel
         }
         else
         {
-            row(history, "Total profit", historyProfit);
-            history.add(Box.createVerticalStrut(8));
+            row(history, "Estimated total", historyProfit);
+            history.add(text(renderedHistory.size() + " saved runs"));
+            historyPage = Math.min(historyPage, (renderedHistory.size() - 1) / HISTORY_PAGE_SIZE);
             int first = historyPage * HISTORY_PAGE_SIZE;
             int end = Math.min(first + HISTORY_PAGE_SIZE, renderedHistory.size());
+            java.time.LocalDate previousDay = null;
+            java.time.LocalDate today = java.time.LocalDate.now();
             for (FarmRun run : renderedHistory.subList(first, end))
             {
-                JButton button = button("<html>" + DATE.format(Instant.ofEpochMilli(run.startedAt)) + "<br>" + numbers.format(run.profit()) + " gp</html>");
-                button.setHorizontalAlignment(SwingConstants.LEFT);
-                button.addActionListener(e -> showLedger(run));
-                long generation = accountGeneration;
-                JButton remove = button("Delete");
-                remove.setForeground(new Color(244, 151, 145));
-                remove.setEnabled(historyReady);
-                remove.getAccessibleContext().setAccessibleName("Delete run from " + DATE.format(Instant.ofEpochMilli(run.startedAt)));
-                remove.addActionListener(e -> deleteHistoryRun(run, generation));
-                JPanel entry = new JPanel(new BorderLayout(6, 0)); entry.setOpaque(false);
-                entry.add(button, BorderLayout.CENTER); entry.add(remove, BorderLayout.EAST);
-                history.add(fit(entry)); history.add(Box.createVerticalStrut(6));
+                java.time.ZonedDateTime started = Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault());
+                java.time.LocalDate day = started.toLocalDate();
+                if (!day.equals(previousDay))
+                {
+                    String date = day.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
+                    String name = day.equals(today) ? "Today · " + date
+                        : day.equals(today.minusDays(1)) ? "Yesterday · " + date : date;
+                    JLabel heading = text(name); heading.setForeground(GOLD);
+                    heading.setFont(BODY.deriveFont(Font.BOLD, 11f));
+                    history.add(Box.createVerticalStrut(12)); history.add(heading); previousDay = day;
+                }
+                RunLocations locations = new RunLocations(run);
+                JButton entry = button(""); entry.setLayout(new BorderLayout(0, 5));
+                JPanel top = new JPanel(new BorderLayout(4, 0)); top.setOpaque(false);
+                JLabel time = new JLabel(started.format(DateTimeFormatter.ofPattern("HH:mm")));
+                time.setFont(BODY.deriveFont(Font.BOLD));
+                JLabel profit = new JLabel((run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
+                profit.setFont(BODY.deriveFont(Font.BOLD)); profit.setForeground(run.profit() < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : GREEN);
+                top.add(time, BorderLayout.WEST); top.add(profit, BorderLayout.EAST);
+                JLabel detail = text(RunLocations.elapsed(run) + " · " + locations.tiles.size() + " patch tiles");
+                detail.setForeground(MUTED);
+                JLabel places = text(locations.shortPlaces()); places.setForeground(MUTED);
+                JPanel lower = column(); lower.setOpaque(false); lower.add(detail); lower.add(places);
+                entry.add(top, BorderLayout.NORTH); entry.add(lower, BorderLayout.CENTER);
+                entry.getAccessibleContext().setAccessibleName("Open run " + DATE.format(Instant.ofEpochMilli(run.startedAt))
+                    + ", estimated profit " + numbers.format(run.profit()) + " gp");
+                entry.setToolTipText("Open run breakdown and locations");
+                entry.addActionListener(e -> showLedger(run));
+                history.add(fit(entry)); history.add(Box.createVerticalStrut(4));
+            }
+            if (historyPage > 0)
+            {
+                JButton newer = button("Newer runs");
+                newer.addActionListener(e -> { historyPage--; renderHistory(); }); history.add(fit(newer));
             }
             if (renderedHistory.size() > HISTORY_PAGE_SIZE)
             {
-                history.add(text((first + 1) + "–" + end + " of " + renderedHistory.size() + " runs"));
-                JPanel pages = new JPanel(new GridLayout(1, 2, 6, 0)); pages.setOpaque(false);
-                JButton previous = button("Previous"); previous.setEnabled(historyPage > 0);
-                previous.addActionListener(e -> { historyPage--; renderHistory(); });
-                JButton next = button("Next"); next.setEnabled(end < renderedHistory.size());
-                next.addActionListener(e -> { historyPage++; renderHistory(); });
-                pages.add(previous); pages.add(next); history.add(fit(pages));
+                history.add(text("Showing " + (first + 1) + "–" + end + " of " + renderedHistory.size() + " runs"));
+                JButton older = button("Load older runs"); older.setEnabled(end < renderedHistory.size());
+                older.addActionListener(e -> { historyPage++; renderHistory(); });
+                history.add(fit(older));
             }
         }
+        for (java.awt.Container parent = history; parent != null; parent = parent.getParent())
+        { parent.invalidate(); }
         history.revalidate(); history.repaint();
     }
 
@@ -360,7 +385,7 @@ final class FarmingProfitPanel extends PluginPanel
         if (choice == 1) { plugin.deleteManual(generation, expectedId); }
     }
 
-    private void deleteHistoryRun(FarmRun run, long generation)
+    private boolean deleteHistoryRun(FarmRun run, long generation)
     {
         Object[] choices = {"Keep run", "Delete run"};
         int choice = JOptionPane.showOptionDialog(this,
@@ -369,7 +394,8 @@ final class FarmingProfitPanel extends PluginPanel
                 + " gp\nAll entries in this saved run will be removed. This cannot be undone.",
             "Delete saved run", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
             null, choices, choices[0]);
-        if (choice == 1) { plugin.deleteHistoryManual(generation, run.id); }
+        if (choice == 1) { plugin.deleteHistoryManual(generation, run.id); return true; }
+        return false;
     }
 
     private void showHelp()
@@ -392,6 +418,13 @@ final class FarmingProfitPanel extends PluginPanel
         dialog.add(new LedgerPanel(run), BorderLayout.CENTER);
         JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 12, 8));
         buttons.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        if (renderedHistory != null && renderedHistory.stream().anyMatch(saved -> saved.id.equals(run.id)))
+        {
+            long generation = accountGeneration;
+            JButton remove = button("Delete run"); remove.setForeground(new Color(244, 151, 145));
+            remove.setEnabled(ready);
+            remove.addActionListener(e -> { if (deleteHistoryRun(run, generation)) { dialog.dispose(); } }); buttons.add(remove);
+        }
         JButton close = button("Close"); close.addActionListener(e -> dialog.dispose()); buttons.add(close);
         dialog.add(buttons, BorderLayout.SOUTH);
         dialog.getRootPane().setDefaultButton(close);

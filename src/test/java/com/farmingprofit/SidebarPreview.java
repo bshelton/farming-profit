@@ -40,10 +40,22 @@ public class SidebarPreview
                 panel.render(new FarmingProfitPlugin.Data(), "Log in to load your farming history.", false);
                 capture(panel, output, "logged-out.png");
                 FarmingProfitPlugin.Data history = new FarmingProfitPlugin.Data();
-                history.history.add(data.active.snapshot());
+                for (int i = 0; i < 3; i++)
+                {
+                    long start = System.currentTimeMillis() - (i == 2 ? 86400000L : i * 7200000L);
+                    FarmRun saved = new FarmRun(start);
+                    saved.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 11, 6100, false, "Ranarr weed @ 3605,3529", "Harvest", start);
+                    saved.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Herb patch @ 3605,3529", "Compost", start);
+                    saved.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 10, 6100, false, "Ranarr weed @ 2813,3463", "Harvest", start);
+                    saved.finishedAt = start + 720000;
+                    history.history.add(saved.snapshot());
+                }
                 panel.render(history, "Saved locally | GE estimates", true);
                 selectHistory(panel);
                 capture(panel, output, "history.png");
+                LedgerPanel locationsPreview = new LedgerPanel(history.history.get(0));
+                selectHistory(locationsPreview);
+                capture(locationsPreview, output, "locations.png", 620, 520);
                 FarmRun ledger = new FarmRun(System.currentTimeMillis());
                 for (int i = 0; i < 13; i++) { ledger.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 1, 6100, false, "Ranarr weed @ 1234,5678", "Sack harvest — XP inference", ledger.startedAt + i * 600L); }
                 ledger.add(ItemID.BUCKET_ULTRACOMPOST, "Ultracompost", 1, 238, true, "Ranarr weed @ 1234,5678", "Bottomless compost (half bucket)", ledger.startedAt + 9000);

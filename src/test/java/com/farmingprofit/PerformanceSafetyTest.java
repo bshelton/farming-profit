@@ -94,14 +94,14 @@ public class PerformanceSafetyTest
             live.active = run(100);
             panel.render(live.snapshot(), "Saved locally", true);
             assertSame(before.get(0), runButtons(panel).get(0));
-            button(panel, "Next").doClick(0);
+            button(panel, "Load older runs").doClick(0);
             assertEquals(25, runButtons(panel).size());
-            button(panel, "Next").doClick(0);
+            button(panel, "Load older runs").doClick(0);
             assertEquals(5, runButtons(panel).size());
-            assertFalse(button(panel, "Next").isEnabled());
+            assertFalse(button(panel, "Load older runs").isEnabled());
             panel.render(live.snapshot(), "Saved locally", true);
             assertEquals(5, runButtons(panel).size());
-            button(panel, "Previous").doClick(0);
+            button(panel, "Newer runs").doClick(0);
             assertEquals(25, runButtons(panel).size());
             while (!live.history.isEmpty())
             { assertTrue(live.deleteHistory(1, 1, live.history.get(0).id)); }
@@ -124,7 +124,8 @@ public class PerformanceSafetyTest
     private static List<JButton> runButtons(Container parent)
     {
         List<JButton> result = buttons(parent);
-        result.removeIf(b -> b.getText() == null || !b.getText().startsWith("<html>"));
+        result.removeIf(b -> b.getAccessibleContext().getAccessibleName() == null
+            || !b.getAccessibleContext().getAccessibleName().startsWith("Open run "));
         return result;
     }
     private static JButton button(Container parent, String label)

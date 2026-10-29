@@ -115,7 +115,9 @@ final class LedgerPanel extends JPanel
         });
         JScrollPane detailScroll = new JScrollPane(details); detailScroll.setBorder(BorderFactory.createEmptyBorder());
         detailScroll.setPreferredSize(new Dimension(0, 142)); body.add(detailScroll, BorderLayout.SOUTH);
-        add(body, BorderLayout.CENTER);
+        JTabbedPane views = new JTabbedPane(); views.setFont(BODY);
+        views.addTab("Entries", body); views.addTab("Locations", locations(run));
+        add(views, BorderLayout.CENTER);
 
         JPanel footer = column();
         if (!run.warnings.isEmpty())
@@ -135,6 +137,45 @@ final class LedgerPanel extends JPanel
         }
         JLabel footnote = label("Snapshot when opened · GE estimates before tax"); footnote.setForeground(MUTED);
         footer.add(footnote); add(footer, BorderLayout.SOUTH);
+    }
+
+    private JPanel locations(FarmRun run)
+    {
+        JPanel panel = new JPanel(new BorderLayout(0, 10)); panel.setOpaque(false);
+        JTextArea explanation = area("Totals by recorded patch location. Travel and manual entries stay separate. Elapsed time includes pauses; patch counts use distinct recorded tiles.", 3);
+        explanation.setPreferredSize(new Dimension(0, 58));
+        panel.add(explanation, BorderLayout.NORTH);
+        RunLocations locations = new RunLocations(run);
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(
+            new String[]{"Location", "Harvest", "Costs", "Profit"}, 0)
+        { @Override public boolean isCellEditable(int row, int col) { return false; } };
+        locations.totals.forEach((place, values) -> model.addRow(new Object[]{place,
+            numbers.format(values[0]) + " gp", numbers.format(values[1]) + " gp", signed(values[0] - values[1])}));
+        JTable table = new JTable(model); table.setFont(BODY); table.setRowHeight(30);
+        table.getTableHeader().setFont(BODY.deriveFont(Font.BOLD));
+        table.getColumnModel().getColumn(0).setPreferredWidth(220);
+        table.getAccessibleContext().setAccessibleName("Totals by farming location");
+        table.setFillsViewportHeight(true); table.setShowGrid(false);
+        for (int col = 0; col < 4; col++)
+        {
+            final int column = col;
+            table.getColumnModel().getColumn(col).setCellRenderer(new DefaultTableCellRenderer()
+            {
+                @Override public Component getTableCellRendererComponent(JTable t, Object value, boolean selected,
+                    boolean focus, int row, int index)
+                {
+                    super.getTableCellRendererComponent(t, value, selected, focus, row, index);
+                    setFont(BODY); setBorder(new EmptyBorder(4, 8, 4, 8));
+                    setHorizontalAlignment(column == 0 ? LEFT : RIGHT);
+                    setBackground(selected ? new Color(60, 57, 45) : row % 2 == 0 ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.DARK_GRAY_COLOR);
+                    setForeground(column == 3 ? String.valueOf(value).startsWith("-") ? RED : GREEN : Color.WHITE);
+                    setToolTipText(String.valueOf(value)); return this;
+                }
+            });
+        }
+        JScrollPane scroll = new JScrollPane(table); scroll.setColumnHeaderView(table.getTableHeader());
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        panel.add(scroll, BorderLayout.CENTER); return panel;
     }
 
     private final class SelectionDetails extends JPanel
@@ -174,7 +215,7 @@ final class LedgerPanel extends JPanel
                 name.setText(row.name); name.setForeground(Color.WHITE);
                 impact.setText(signed(row.impact()) + " gp"); impact.setForeground(row.impact() < 0 ? RED : GREEN);
                 calculation.setText(row.type() + " · " + numbers.format(row.quantity) + " × " + numbers.format(row.unitPrice) + " gp each");
-                field(0, "Patch", row.patch.replace(" @ ", " · Tile "), Color.WHITE);
+                field(0, "Patch", PatchLocations.display(row.patch), Color.WHITE);
                 boolean inferred = row.source.equals("Sack harvest — XP inference");
                 field(1, "Tracking", inferred ? "Estimated from Farming XP — verify sack count" : row.source, inferred ? GOLD : Color.WHITE);
                 String lastTime = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(row.last));
