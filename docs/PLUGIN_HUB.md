@@ -1,6 +1,6 @@
 # Plugin Hub submission
 
-Draft submission opened on 2026-10-28: https://github.com/runelite/plugin-hub/pull/19631
+Draft submission opened on 2026-10-28: https://github.com/runelite/plugin-hub/pull/19639
 
 The draft manifest pins the candidate commit. The pre-rename candidate `0923e658d91bcb449abdcc0714b9f54e8443608a` passed 87 tests and CI; verify CI for the updated candidate separately. Remaining live gates are documented in RELEASE_READINESS.md. The draft is not approval or publication.
 
@@ -22,4 +22,4 @@ commit=FULL_40_CHARACTER_TESTED_COMMIT
 8. Address automated checks and human review. Acceptance/publication belong to RuneLite.
 9. Future releases require updating the Hub's pinned commit; pushing here alone does not update users.
 
-Recheck https://github.com/runelite/plugin-hub#submitting-a-plugin before submission. Accurately attribute generated code to Codex in the PR.
+Recheck https://github.com/runelite/plugin-hub#submitting-a-plugin before submission. Use a concise feature and validation description without a generated-by footer or name-change narrative.

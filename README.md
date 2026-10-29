@@ -2,7 +2,7 @@
 
 A farming-only RuneLite plugin for harvest value, supply costs and local run history.
 
-**Experimental prototype. [Plugin Hub submission is in draft](https://github.com/runelite/plugin-hub/pull/19631); not approved or published. Remaining live checks are documented below.**
+**Experimental prototype. [Plugin Hub submission is in draft](https://github.com/runelite/plugin-hub/pull/19639); not approved or published. Remaining live checks are documented below.**
 
 See [release readiness](docs/RELEASE_READINESS.md) for completed code hardening and the remaining live validation gates.
 

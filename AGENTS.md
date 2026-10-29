@@ -80,9 +80,7 @@ After completing a task, do not declare it done. Instead:
 
 ## Submitting
 
-When submitting a pull request to runelite/plugin-hub, append an attribution footer to the PR description structured like:
-
-Generated-by: Codex
+For this project, use branch names without a `codex/` prefix and omit generated-by attribution footers from Plugin Hub PR descriptions, as requested by the user.
 
 ---
 
