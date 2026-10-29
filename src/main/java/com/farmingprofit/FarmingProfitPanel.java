@@ -105,6 +105,8 @@ final class FarmingProfitPanel extends PluginPanel
         add(content, BorderLayout.NORTH);
         start.setFont(BODY.deriveFont(Font.BOLD));
         start.addActionListener(e -> plugin.startManual(accountGeneration));
+        finish.setIcon(RunActionIcon.FINISH); finish.setIconTextGap(4);
+        pause.setIconTextGap(4);
         finish.addActionListener(e -> plugin.finishManual(accountGeneration, activeId));
         pause.addActionListener(e -> plugin.pauseManual(accountGeneration, activeId, !paused));
         delete.setForeground(new Color(244, 151, 145));
@@ -159,6 +161,34 @@ final class FarmingProfitPanel extends PluginPanel
         });
         button.setBorder(new EmptyBorder(8, 8, 8, 8)); return button;
     }
+    /** Small vector marks use the button foreground and scale with Swing's graphics. */
+    private enum RunActionIcon implements Icon
+    {
+        PAUSE, RESUME, FINISH;
+        public int getIconWidth() { return 10; }
+        public int getIconHeight() { return 10; }
+        public void paintIcon(java.awt.Component component, java.awt.Graphics graphics, int x, int y)
+        {
+            java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
+            try
+            {
+                g.translate(x, y);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(component.isEnabled() ? component.getForeground() : MUTED);
+                if (this == PAUSE)
+                { g.fillRect(1, 1, 3, 8); g.fillRect(6, 1, 3, 8); }
+                else if (this == RESUME)
+                { g.fillPolygon(new int[]{2, 9, 2}, new int[]{1, 5, 9}, 3); }
+                else
+                {
+                    g.setStroke(new java.awt.BasicStroke(1.7f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+                    g.drawPolyline(new int[]{1, 4, 9}, new int[]{5, 8, 2}, 3);
+                }
+            }
+            finally { g.dispose(); }
+        }
+    }
+
     /** Vector information mark stays crisp at client UI scaling levels. */
     private static final class InformationIcon implements Icon
     {
@@ -213,6 +243,7 @@ final class FarmingProfitPanel extends PluginPanel
             if (active)
             {
                 pause.setText(paused ? "Resume run" : "Pause run");
+                pause.setIcon(paused ? RunActionIcon.RESUME : RunActionIcon.PAUSE);
                 JPanel controls = new JPanel(new GridLayout(1, 2, 6, 0)); controls.setOpaque(false);
                 controls.add(pause); controls.add(finish); actions.add(fit(controls));
                 actions.add(Box.createVerticalStrut(6)); adjust.setEnabled(ready); actions.add(fit(adjust));
