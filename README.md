@@ -6,8 +6,6 @@ Available in the [RuneLite Plugin Hub](https://runelite.net/plugin-hub/).
 
 **[User documentation](https://bshelton.github.io/lumby-labs/docs/farming-run-profit/) · [Help & support](https://bshelton.github.io/lumby-labs/help/) · [Report a bug](https://github.com/bshelton/farming-profit/issues/new?template=bug_report.yml)**
 
-See [release readiness](docs/RELEASE_READINESS.md) for completed code hardening and the remaining live validation gates.
-
 ## Features
 
 - Run and History tabs, settings, automatic/manual runs and idle completion.
