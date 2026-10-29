@@ -1,6 +1,6 @@
 # Local history recovery
 
-History is stored under RuneLite's `farming-profit` plugin-data directory, with a separate filename for each RuneScape profile:
+History is stored under RuneLite's `farming-profit-tracker` plugin-data directory, with a separate filename for each RuneScape profile:
 
 - `<profile>.json`: current saved history.
 - `<profile>.pending`: temporary replacement; normally removed by atomic rename.
@@ -19,3 +19,9 @@ To recover manually:
 4. Restart the client and verify the expected run and totals. Re-enter any missing recent harvests using manual corrections with a clear reason.
 
 If no recovery copy is valid, retain the damaged files for diagnosis rather than deleting them. Never share an entire RuneLite directory, credentials or unrelated logs in a bug report.
+
+## Development identifier migration
+
+Earlier development builds stored history in `.runelite/plugin-data/farming-profit`. The Hub requires the internal identifier `farming-profit-tracker`, so current builds use `.runelite/plugin-data/farming-profit-tracker`. Configuration remains in the existing `farming-profit` config group.
+
+With the client closed, copy the old data folder to the new location, retaining the original. Do not overwrite an existing destination: compare and recover the correct per-profile files first. The plugin does not access the other plugin's directory or migrate it automatically. Reopen and verify history and active-run totals.

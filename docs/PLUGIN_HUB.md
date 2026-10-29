@@ -4,7 +4,7 @@ Draft submission opened on 2026-10-28: https://github.com/runelite/plugin-hub/pu
 
 The draft manifest pins the candidate commit. The pre-rename candidate `0923e658d91bcb449abdcc0714b9f54e8443608a` passed 87 tests and CI; verify CI for the updated candidate separately. Remaining live gates are documented in RELEASE_READINESS.md. The draft is not approval or publication.
 
-Manifest name is `farming-profit-tracker`: the existing `farming-profit` entry belongs to a different, disabled plugin and is left untouched. The display name is now **Farming Run Profit** to distinguish it. Internal configuration and storage identifiers remain `farming-profit` to preserve existing settings and history.
+Manifest name is `farming-profit-tracker`: the existing `farming-profit` entry belongs to a different, disabled plugin and is left untouched. The display name is now **Farming Run Profit** to distinguish it. The internal identifier matches the manifest (`farming-profit-tracker`); the config group remains `farming-profit`. See RECOVERY.md for preserving history from earlier development builds.
 
 1. Complete and record the acceptance checks in TESTING.md.
 2. Run `./gradlew clean check preview` and verify Linux/Windows/macOS CI on the exact candidate commit. Review `RELEASE_READINESS.md`; run `./gradlew performanceCheck` for the synthetic large-history check.

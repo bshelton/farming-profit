@@ -34,7 +34,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 @Slf4j
-@PluginDescriptor(name = "Farming Run Profit", internalName = "farming-profit",
+@PluginDescriptor(name = "Farming Run Profit", internalName = "farming-profit-tracker",
     description = "Farming-only harvest, supply cost and run history tracker",
     tags = {"farming", "profit", "herbs", "harvest", "fruit", "cactus"})
 public class FarmingProfitPlugin extends Plugin

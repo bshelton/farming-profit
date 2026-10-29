@@ -60,7 +60,7 @@ Follow [the in-game acceptance checklist](docs/TESTING.md) before release, then 
 
 ## Local data
 
-JSON history is stored in RuneLite's plugin-data directory under `farming-profit`, separated by RuneScape profile. Writes run off the game thread and replace files atomically. A validated session-start backup is retained. Unreadable history pauses tracking rather than overwriting it. See [recovery instructions](docs/RECOVERY.md). Data is not synced to GitHub or other devices.
+JSON history is stored in RuneLite's plugin-data directory under `farming-profit-tracker`, separated by RuneScape profile. Writes run off the game thread and replace files atomically. A validated session-start backup is retained. Unreadable history pauses tracking rather than overwriting it. See [recovery instructions](docs/RECOVERY.md). Data is not synced to GitHub or other devices.
 
 Optional DEBUG diagnostics record local farming actions and system signals, not player chat. Share only relevant diagnostic excerpts, not entire client logs.
 
