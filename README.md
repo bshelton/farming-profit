@@ -38,12 +38,18 @@ GE values are saved per entry. They are estimates before sale tax, not actual sa
 
 ## Limitations
 
-- The catalogue covers broad patch categories, but each location and live event sequence still needs testing.
-- Consumed icy/stony basalt, supported teleport tablets and loose teleport scrolls count as travel costs during an active run, using GE prices. Start a run manually before the first teleport to include it. This can be disabled in Settings. Only item use followed by consumption counts; banking or dropping items does not.
-- Spell runes (including rune-pouch supplies), jewellery charges, master scroll-book uses, Fertile Soil, seed-box consumption and missed gardener payments require manual costs. Payment detection needs recent nearby patch interaction. Unpriced teleport items require a manual value.
-- Bottomless compost uses half a bucket's price per application. Successful compost messages must be verified with filtered chat.
-- No automatic minigame rewards, Hespori combat loot, farming contracts or birdhouses.
-- Lifetime patch accounting, exports, comparisons, automatic custom price overrides and tax estimates are deferred.
+- Automatic travel costs cover supported icy/stony basalt, teleport tablets and loose inventory scrolls consumed during an active, unpaused run. Start manually before the first teleport to include it. Travel tracking can be disabled in Settings; banking or dropping items alone does not count.
+- Spell runes (including rune-pouch supplies), jewellery charges, master scroll-book uses, Fertile Soil supplies and seed-box consumption require manual cost entries. Gardener payment detection needs a recent nearby patch interaction; add missed payments manually.
+- Compost tracking relies on successful treatment messages and recent patch context. Bottomless compost is estimated at half the relevant bucket's GE price per application, rounded up to a whole gp.
+- Herb-sack yields can be inferred from XP rather than read directly. See [Herb sack](#herb-sack) for inference limits and review guidance.
+- Profit covers this run's harvest and recorded costs, not the lifetime cost of growing each crop. GE prices are estimates before sale tax. Items without a GE price are valued at zero and flagged for correction.
+- Location names use known farming regions. Unknown areas retain their coordinates; travel and manual entries are not allocated to individual patches. Patch counts represent distinct recorded tiles, and elapsed time includes pauses and time until the run finished.
+- Minigame rewards, Hespori combat loot, farming-contract rewards and birdhouses are not tracked automatically.
+- Exports, run comparisons, automatic custom-price rules and sale-tax calculations are not implemented. Manual entries and corrections can use a supplied price.
+
+### Testing coverage
+
+A completed nine-patch ranarr run and History were checked in-game. Its trace recorded harvests at all nine stops, both basalt teleports, a tablet, seeds and bottomless compost. One Morytania sack harvest was separately confirmed against the player's count. This does not establish exact-count accuracy for every crop, patch or event sequence; broader coverage and filtered-chat compost behavior remain unverified. See the [test record](docs/TESTING.md) for evidence and outstanding checks.
 
 ## Development
 
