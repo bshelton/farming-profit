@@ -40,6 +40,17 @@ final class FarmingProfitPanel extends PluginPanel
     private final NumberFormat numbers = NumberFormat.getIntegerInstance();
     private final JTabbedPane tabs = new JTabbedPane()
     {
+        @Override public Dimension getPreferredSize()
+        {
+            Dimension size = super.getPreferredSize();
+            // BasicTabbedPaneUI reserves space for the largest tab, including hidden history.
+            int tallest = 0;
+            for (int i = 0; i < getTabCount(); i++)
+            { tallest = Math.max(tallest, getComponentAt(i).getPreferredSize().height); }
+            if (getSelectedComponent() != null)
+            { size.height += getSelectedComponent().getPreferredSize().height - tallest; }
+            return size;
+        }
         @Override public Dimension getMaximumSize()
         { return new Dimension(Integer.MAX_VALUE, getPreferredSize().height); }
     };
@@ -84,16 +95,27 @@ final class FarmingProfitPanel extends PluginPanel
         content.add(actions); content.add(Box.createVerticalStrut(10));
         status.setForeground(MUTED); content.add(status);
         JButton help = button("How profit is calculated");
-        help.setFont(BODY.deriveFont(11f));
-        help.addActionListener(e -> showHelp()); content.add(fit(help));
+        help.setFont(BODY.deriveFont(10f));
+        help.setForeground(MUTED);
+        help.setIcon(new InformationIcon()); help.setIconTextGap(5);
+        help.setToolTipText("Harvest value, supply costs, travel costs and estimates");
+        help.addActionListener(e -> showHelp());
+        JPanel helpRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 0));
+        helpRow.setOpaque(false); helpRow.add(help); content.add(fit(helpRow));
         add(content, BorderLayout.NORTH);
+        start.setFont(BODY.deriveFont(Font.BOLD));
         start.addActionListener(e -> plugin.startManual(accountGeneration));
         finish.addActionListener(e -> plugin.finishManual(accountGeneration, activeId));
         pause.addActionListener(e -> plugin.pauseManual(accountGeneration, activeId, !paused));
         delete.setForeground(new Color(244, 151, 145));
         delete.addActionListener(e -> deleteCurrentRun());
         adjust.addActionListener(e -> correction());
-        tabs.addChangeListener(e -> updateActions());
+        tabs.addChangeListener(e -> {
+            updateActions();
+            for (java.awt.Container parent = tabs; parent != null; parent = parent.getParent())
+            { parent.invalidate(); }
+            revalidate(); repaint();
+        });
         render(new FarmingProfitPlugin.Data(), "Log in to start tracking.", false);
     }
 
@@ -115,8 +137,44 @@ final class FarmingProfitPanel extends PluginPanel
     }
     private static JButton button(String label)
     {
-        JButton button = new JButton(label); button.setFont(BODY);
+        JButton button = new JButton(label)
+        {
+            @Override protected void paintComponent(java.awt.Graphics graphics)
+            {
+                super.paintComponent(graphics);
+                if (isFocusOwner())
+                {
+                    graphics.setColor(GOLD);
+                    graphics.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                }
+            }
+        };
+        button.setFont(BODY); button.setFocusPainted(false);
+        button.setOpaque(true); button.setContentAreaFilled(true);
+        button.setBackground(new Color(32, 32, 32));
+        button.setRolloverEnabled(true);
+        button.getModel().addChangeListener(e -> {
+            boolean hover = button.isEnabled() && button.getModel().isRollover();
+            button.setBackground(hover ? new Color(49, 49, 45) : new Color(32, 32, 32));
+        });
         button.setBorder(new EmptyBorder(8, 8, 8, 8)); return button;
+    }
+    /** Vector information mark stays crisp at client UI scaling levels. */
+    private static final class InformationIcon implements Icon
+    {
+        public int getIconWidth() { return 12; }
+        public int getIconHeight() { return 12; }
+        public void paintIcon(java.awt.Component component, java.awt.Graphics graphics, int x, int y)
+        {
+            java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
+            try
+            {
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(component.getForeground()); g.drawOval(x, y, 11, 11);
+                g.fillOval(x + 5, y + 2, 2, 2); g.fillRect(x + 5, y + 5, 2, 4);
+            }
+            finally { g.dispose(); }
+        }
     }
     private static String escape(String text)
     {
@@ -190,21 +248,16 @@ final class FarmingProfitPanel extends PluginPanel
         activeId = active ? data.active.id : null; paused = active && data.active.paused;
         String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
         setText(status, concise); status.setToolTipText(message);
-        status.setVisible(ready);
+        status.setVisible(ready && (active || !message.startsWith("Saved locally")));
         if (data.active == null)
         {
             JLabel illustration = new JLabel(BrandAssets.HARVEST, SwingConstants.CENTER);
             illustration.getAccessibleContext().setAccessibleName("Herbs and gold coins in a harvest crate");
             current.add(fit(illustration)); current.add(Box.createVerticalStrut(12));
-            JLabel title = ready ? text("Ready for your next run") : centeredText("Waiting for your account");
+            JLabel title = centeredText(ready ? "Ready for a farming run?" : "Waiting for your account");
             title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
-            JLabel hint = ready ? text("Harvest or plant a patch to begin automatically.") : centeredText(message);
+            JLabel hint = centeredText(ready ? "Harvest or plant a patch to start tracking automatically." : message);
             hint.setForeground(MUTED); current.add(hint);
-            if (ready)
-            {
-                current.add(Box.createVerticalStrut(6));
-                JLabel manual = text("Or start a run manually below."); manual.setForeground(MUTED); current.add(manual);
-            }
         }
         else { summary(current, data.active); }
         if (renderedHistory != data.history || historyReady != ready || !message.equals(historyMessage))
@@ -321,7 +374,7 @@ final class FarmingProfitPanel extends PluginPanel
 
     private void showHelp()
     {
-        JTextArea help = new JTextArea("Estimated profit is harvest value minus supplies used during this run. Earlier planting costs are not included.\n\nExisting fruit trees and cactus count when harvested. Moving, noting or banking produce does not count.\n\nConsumed basalt, teleport tablets and inventory scrolls count during an active run. Start the run before your first teleport. Rune costs, jewellery charges, scroll-book teleports and missed costs can be added using Add / correct entry.\n\nGE values are estimates before sale tax. Sack counts inferred from XP are marked for review. Automatic detection is still being validated.", 13, 34);
+        JTextArea help = new JTextArea("Estimated profit is harvest value minus supplies used during this run. Earlier planting costs are not included.\n\nExisting fruit trees and cactus count when harvested. Moving, noting or banking produce does not count.\n\nConsumed basalt, teleport tablets and inventory scrolls count during an active run. To include supported teleport costs, start your run before teleporting. Rune costs, jewellery charges, scroll-book teleports and missed costs can be added using Add / correct entry.\n\nGE values are estimates before sale tax. Sack counts inferred from XP are marked for review. Automatic detection is still being validated.", 13, 34);
         help.setFont(BODY); help.setLineWrap(true); help.setWrapStyleWord(true); help.setEditable(false);
         help.setCaretPosition(0);
         JOptionPane.showMessageDialog(this, new JScrollPane(help), "About farming profit", JOptionPane.PLAIN_MESSAGE);
