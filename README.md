@@ -2,7 +2,7 @@
 
 A farming-only RuneLite plugin for harvest value, supply costs and local run history.
 
-Available in the [RuneLite Plugin Hub](https://runelite.net/plugin-hub/show/farming-profit-tracker).
+Available in the [RuneLite Plugin Hub](https://runelite.net/plugin-hub/).
 
 **[User documentation](https://bshelton.github.io/lumby-labs/docs/farming-run-profit/) · [Help & support](https://bshelton.github.io/lumby-labs/help/) · [Report a bug](https://github.com/bshelton/farming-profit/issues/new?template=bug_report.yml)**
 
