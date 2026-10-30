@@ -20,7 +20,15 @@ public class SidebarPreview
             try
             {
                 net.runelite.client.ui.laf.RuneLiteLAF.setup();
-                FarmingProfitPanel panel = new FarmingProfitPanel(null);
+                FarmingProfitPanel panel = new FarmingProfitPanel(null, (label, id) -> {
+                    // Optional actual RuneLite CDN sprites for standalone design previews only.
+                    Filepath icon = output.join("item-icons").join(id + ".png");
+                    if (icon.exists())
+                    {
+                        try (var stream = icon.openInputStream()) { label.setIcon(new ItemSpriteIcon(ImageIO.read(stream), 24)); }
+                        catch (Exception e) { throw new IllegalStateException(e); }
+                    }
+                });
                 FarmingProfitPlugin.Data data = new FarmingProfitPlugin.Data();
                 data.active = new FarmRun(System.currentTimeMillis());
                 data.active.add(ItemID.UNIDENTIFIED_RANARR, "Grimy ranarr weed", 72, 3000, false, "Catherby", "Harvest", 1);
@@ -28,6 +36,14 @@ public class SidebarPreview
                 data.active.farmingXp = 1944;
                 panel.render(data, "Saved locally | GE estimates", true);
                 capture(panel, output, "sidebar.png");
+                panel.selectXpView(true);
+                capture(panel, output, "herblore-current.png");
+                panel.openRecipeEditor();
+                capture(panel, output, "herblore-choices.png");
+                click(panel, "More herbs");
+                capture(panel, output, "herblore-choices-expanded.png");
+                click(panel, "Back");
+                panel.selectXpView(false);
                 data.active.setPaused(true, System.currentTimeMillis());
                 panel.render(data, "Saved locally | GE estimates", true);
                 capture(panel, output, "paused.png");
@@ -53,6 +69,10 @@ public class SidebarPreview
                 panel.render(history, "Saved locally | GE estimates", true);
                 selectHistory(panel);
                 capture(panel, output, "history.png");
+                panel.selectXpView(true);
+                click(panel, "Today");
+                capture(panel, output, "herblore-history.png");
+                panel.selectXpView(false);
                 LedgerPanel locationsPreview = new LedgerPanel(history.history.get(0));
                 selectHistory(locationsPreview);
                 capture(locationsPreview, output, "locations.png", 620, 520);
@@ -81,6 +101,16 @@ public class SidebarPreview
         BufferedImage image = new BufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics(); graphics.scale(2, 2); panel.paint(graphics); graphics.dispose();
         try (var stream = output.join(name).openOutputStream()) { ImageIO.write(image, "png", stream); }
+    }
+    private static boolean click(Container container, String text)
+    {
+        for (var child : container.getComponents())
+        {
+            if (child instanceof javax.swing.JButton && text.equals(((javax.swing.JButton) child).getText()))
+            { ((javax.swing.JButton) child).doClick(0); return true; }
+            if (child instanceof Container && click((Container) child, text)) { return true; }
+        }
+        return false;
     }
     private static void selectFirstRow(Container container)
     {

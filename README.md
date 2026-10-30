@@ -1,6 +1,6 @@
 # Farming Run Profit
 
-**See what your farming run earned.** A RuneLite plugin by [Lumby Labs](https://bshelton.github.io/lumby-labs/) that tracks harvest value, supplies and supported travel costs—with herb-sack support and saved run history.
+**See what your farming run earned.** Track profit, herb-sack harvests and run history—or estimate the Herblore XP you could get from your herbs. A RuneLite plugin by [Lumby Labs](https://bshelton.github.io/lumby-labs/).
 
 [Install from the Plugin Hub](https://runelite.net/plugin-hub/show/farming-profit-tracker) · [Read the guide](https://bshelton.github.io/lumby-labs/docs/farming-run-profit/) · [Get help](https://bshelton.github.io/lumby-labs/help/)
 
@@ -17,7 +17,7 @@ Open a run to inspect its entries or compare harvest value and costs by location
 
 <img src="docs/screenshots/locations.png" alt="Run breakdown Locations tab showing separate harvest, cost and profit totals for Morytania and Catherby" width="620">
 
-*Screenshots are rendered from the current source with illustrative data. They show the upcoming UI update; Plugin Hub installations may still show the previous layout until the update is published.*
+*Screenshots use sample data from this branch. New features reach the Plugin Hub after its update is approved.*
 
 ## Start your first run
 
@@ -35,7 +35,8 @@ Open a run to inspect its entries or compare harvest value and costs by location
 | Harvests | Herbs, allotments, flowers, hops, bushes, cactus, fruit trees and other supported farming crops. Established trees count when harvested. |
 | Supplies & travel | Records visible seed/sapling use, detected compost and gardener payments, plus supported basalt, tablet and inventory-scroll teleports. |
 | Herb sacks | Uses Farming XP to estimate herbs entering an open sack when they aren’t visible in inventory. Inferred counts are marked for review. |
-| Run history | Browse runs by day, open their itemized ledger, view location totals, or delete a saved run with confirmation. |
+| Run history | Browse runs by day, filter Today / Week / Month / All, open their ledger, view location totals, or delete a saved run with confirmation. |
+| Herblore XP | Estimate XP from harvested herbs, choose a recipe per herb and optionally include cleaning XP. Switch back to GP at any time. |
 | Run controls | Pause/resume a run, discard the current run, or add manual entries and corrections. |
 | Reminders | Optional reminders for missing magic secateurs, a closed herb sack, or farming while paused. |
 
@@ -48,6 +49,23 @@ History displays 25 runs at a time, with **Load older runs** and **Newer runs** 
 Picking fruit from an existing dragonfruit tree adds the fruit’s value. Planting a new tree adds the sapling cost to this run. Earlier planting costs aren’t included.
 
 Prices are GE estimates saved with each entry, **before sale tax**. Moving, banking or noting produce does not count as another harvest.
+
+## Planning Herblore training
+
+1. Select **Herblore XP**, then **Edit potion choices**.
+2. Choose a recipe for each herb. Use **More herbs** for the full list and toggle cleaning XP as needed.
+3. Select **Done** to save, or **Back** to discard edits.
+
+<p>
+  <img src="docs/screenshots/herblore-current.png" alt="Potential Herblore XP with real ranarr and prayer potion icons, recipe and cleaning XP totals" width="225">
+  <img src="docs/screenshots/herblore-history.png" alt="Herblore history with a Today filter, daily XP total and completed runs" width="225">
+</p>
+
+- **Potential XP, not earned XP:** assumes all secondaries are available and uses base recipe XP. No bank scan or processing bonuses.
+- **Past runs update too:** changing recipes recalculates their XP estimates. GP values stay unchanged.
+- **Completed runs only:** History filters by local start date. Week starts Monday; Month means this calendar month.
+
+Choose **How XP is estimated** in the sidebar for details. Your run history is saved locally.
 
 ## A few things to know
 

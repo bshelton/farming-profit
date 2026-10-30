@@ -38,6 +38,18 @@ Harvesting an established dragonfruit tree records its fruit without inventing a
 
 GE values are saved per entry. They are estimates before sale tax, not actual sale proceeds. Unpriced items use zero with a review warning. Woodcutting logs, combat drops and non-farming income are excluded.
 
+## Potential Herblore XP
+
+The optional **Herblore XP** view sums recorded harvest quantities by herb, then applies the selected recipe's base XP and optional herb-cleaning XP. It supports the 15 normal farmable herbs, including huasca; goutweed and non-herb crops do not contribute. Recipes include common single-herb potions and herb tar. This is a curated selection, not every possible processing method.
+
+- Negative harvest corrections subtract the matching herb's XP; zero-net herbs disappear. Costs, secondaries and GP-only adjustments never add XP.
+- All secondaries (including premade potion ingredients where applicable) are assumed available. No bank scan, level check, actual Herblore XP tracking, outfit/equipment bonuses, downstream recipe chains, Degrime or Mastering Mixology estimates.
+- **Done** saves recipe and cleaning choices in RuneLite configuration. **Back** cancels. Settings apply to the RuneLite configuration profile; run data remains separated by RuneScape profile.
+- Current recipe choices recalculate old history; no XP values are written into saved runs and there is no data migration. Existing GP price snapshots remain untouched.
+- Today / Week / Month / All filter completed runs using their local start date, not completion date. Week starts Monday, Month is the calendar month. Daily totals include runs beyond the visible 25-row page.
+- The XP breakdown retains a GP ledger tab for original entries, locations and review notes. An open breakdown is a snapshot of recipes when opened; reopen it after changing choices. Inferred sack counts have the same uncertainty in both views.
+- The sidebar uses real game item icons. Routine save-status text stays hidden; save failures still appear. **How XP is estimated** explains the assumptions.
+
 ## Limitations
 
 - Automatic travel costs cover supported icy/stony basalt, teleport tablets and loose inventory scrolls consumed during an active, unpaused run. Start manually before the first teleport to include it. Travel tracking can be disabled in Settings; banking or dropping items alone does not count.
@@ -73,6 +85,12 @@ Follow [the in-game acceptance checklist](TESTING.md) before release, then [the 
 JSON history is stored in RuneLite's plugin-data directory under `farming-profit-tracker`, separated by RuneScape profile. Writes run off the game thread and replace files atomically. A validated session-start backup is retained. Unreadable history pauses tracking rather than overwriting it. See [recovery instructions](RECOVERY.md). Data is not synced to GitHub or other devices.
 
 Optional DEBUG diagnostics record local farming actions and system signals, not player chat. Share only relevant diagnostic excerpts, not entire client logs.
+
+## XP references
+
+Recipe and cleaning rates are checked against [RuneLite’s Herblore calculator](https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/plugins/skillcalculator/skills/HerbloreAction.java). Herb ingredients were cross-checked with the [OSRS Wiki experience table](https://oldschool.runescape.wiki/w/Herblore/Experience_table).
+
+Each rate is **per herb processed**, not per dose or individual tar. For example, one ranarr made into a prayer potion is 87.5 XP, plus 7.5 XP if cleaning is included: **95 XP per harvested ranarr**. Super restore is 142.5 XP plus 11.8 XP for cleaning snapdragon. Fractional XP is retained until display.
 
 ## References
 
