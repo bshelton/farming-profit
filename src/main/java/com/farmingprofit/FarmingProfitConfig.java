@@ -35,4 +35,12 @@ public interface FarmingProfitConfig extends Config
 
     @ConfigItem(keyName = "reminderOutline", name = "Outline closed herb sack", description = "Outline a closed sack in your inventory while its herb-harvest reminder is active", position = 8)
     default boolean reminderOutline() { return false; }
+    @ConfigItem(keyName = "herbloreView", name = "Show Herblore XP", description = "Show potential Herblore XP instead of GP; this does not measure XP earned", position = 9)
+    default boolean herbloreView() { return false; }
+
+    @ConfigItem(keyName = "herbCleaningXp", name = "Include herb cleaning XP", description = "Include base XP from cleaning harvested herbs in potential Herblore XP", position = 10)
+    default boolean herbCleaningXp() { return true; }
+
+    @ConfigItem(keyName = "herbRecipes", name = "Potion choices", description = "Per-herb recipes selected in the sidebar", hidden = true)
+    default String herbRecipes() { return ""; }
 }

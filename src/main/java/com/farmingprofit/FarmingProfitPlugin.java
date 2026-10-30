@@ -590,7 +590,7 @@ public class FarmingProfitPlugin extends Plugin
     @Subscribe public void onConfigChanged(ConfigChanged event)
     {
         if ("farming-profit".equals(event.getGroup()))
-        { clientThread.invoke(() -> { if (enabled) { updateReminders(); } }); }
+        { clientThread.invoke(() -> { if (enabled) { updateReminders(); refresh(); } }); }
     }
 
     private void reconcileSignals()
@@ -757,6 +757,20 @@ public class FarmingProfitPlugin extends Plugin
                 || !data.deleteHistory(generation, accountGeneration, expectedId)) { return; }
             save(); refresh();
         });
+    }
+    boolean herbloreView() { return config.herbloreView(); }
+    HerbloreEstimate.Choices herbChoices()
+    { return new HerbloreEstimate.Choices(config.herbCleaningXp(), config.herbRecipes()); }
+    void updateHerbloreView(boolean xp) { configs.setConfiguration("farming-profit", "herbloreView", xp); }
+    void updateHerbChoices(HerbloreEstimate.Choices choices)
+    {
+        configs.setConfiguration("farming-profit", "herbRecipes", choices.encode());
+        configs.setConfiguration("farming-profit", "herbCleaningXp", choices.cleaning);
+    }
+    void itemIcon(javax.swing.JLabel label, int itemId)
+    {
+        net.runelite.client.util.AsyncBufferedImage image = items.getImage(itemId);
+        if (image != null) { image.addTo(label); label.setIcon(new ItemSpriteIcon(image, 24)); }
     }
     boolean[] settingsValues() { return new boolean[]{config.automatic(), config.compost(), config.diagnostics(), config.travel(),
         config.remindSecateurs(), config.remindSack(), config.remindPaused(), config.reminderOutline()}; }

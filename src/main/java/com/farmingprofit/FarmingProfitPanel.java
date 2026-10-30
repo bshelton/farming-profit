@@ -65,15 +65,31 @@ final class FarmingProfitPanel extends PluginPanel
     private String historyMessage;
     private boolean historyReady;
     private int historyPage;
-    private long historyProfit;
+
+    private final java.util.function.BiConsumer<JLabel, Integer> icons;
+    private boolean xpView;
+    private HerbloreEstimate.Choices herbChoices = new HerbloreEstimate.Choices(true, "");
+    private HerbloreEstimate.Period period = HerbloreEstimate.Period.ALL;
+    private final Map<String, HerbloreEstimate> historyXp = new LinkedHashMap<>();
+    private java.time.LocalDate historyDay;
+    private FarmingProfitPlugin.Data lastData;
+    private String lastMessage;
+    private JPanel normalContent;
+    private final JButton help = button("How profit is calculated");
+    private boolean editingRecipes;
 
     FarmingProfitPanel(FarmingProfitPlugin plugin)
     {
+        this(plugin, (label, id) -> { if (plugin != null) { plugin.itemIcon(label, id); } });
+    }
+    FarmingProfitPanel(FarmingProfitPlugin plugin, java.util.function.BiConsumer<JLabel, Integer> icons)
+    {
         this.plugin = plugin;
+        this.icons = icons;
         setLayout(new BorderLayout());
         setBorder(new EmptyBorder(12, 10, 12, 10));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
-        JPanel content = column();
+        JPanel content = column(); normalContent = content;
         JPanel heading = new JPanel(new BorderLayout(4, 0));
         heading.setOpaque(false);
         JLabel title = new JLabel("<html>Farming Run<br>Profit</html>");
@@ -82,7 +98,7 @@ final class FarmingProfitPanel extends PluginPanel
         heading.add(title, BorderLayout.CENTER);
         JButton settings = button("Settings");
         settings.setFont(BODY.deriveFont(10f));
-        settings.setBorder(new EmptyBorder(6, 5, 6, 5));
+        settings.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(SidebarStyle.LINE), new EmptyBorder(6, 5, 6, 5)));
         settings.addActionListener(e -> settings());
         heading.add(settings, BorderLayout.EAST);
         content.add(fit(heading)); content.add(Box.createVerticalStrut(12));
@@ -94,12 +110,12 @@ final class FarmingProfitPanel extends PluginPanel
         content.add(tabs); content.add(Box.createVerticalStrut(12));
         content.add(actions); content.add(Box.createVerticalStrut(10));
         status.setForeground(MUTED); content.add(status);
-        JButton help = button("How profit is calculated");
         help.setFont(BODY.deriveFont(10f));
         help.setForeground(MUTED);
+        help.setBorder(new EmptyBorder(6, 3, 6, 3)); help.setContentAreaFilled(false); help.setOpaque(false);
         help.setIcon(new InformationIcon()); help.setIconTextGap(5);
         help.setToolTipText("Harvest value, supply costs, travel costs and estimates");
-        help.addActionListener(e -> showHelp());
+        help.addActionListener(e -> { if (xpView) { showXpHelp(); } else { showHelp(); } });
         JPanel helpRow = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 0));
         helpRow.setOpaque(false); helpRow.add(help); content.add(fit(helpRow));
         add(content, BorderLayout.NORTH);
@@ -110,6 +126,8 @@ final class FarmingProfitPanel extends PluginPanel
         finish.addActionListener(e -> plugin.finishManual(accountGeneration, activeId));
         pause.addActionListener(e -> plugin.pauseManual(accountGeneration, activeId, !paused));
         delete.setForeground(new Color(244, 151, 145));
+        delete.setBorder(new EmptyBorder(6, 6, 6, 6)); delete.setContentAreaFilled(false); delete.setOpaque(false);
+        pause.setFont(BODY.deriveFont(11f)); finish.setFont(BODY.deriveFont(11f));
         delete.addActionListener(e -> deleteCurrentRun());
         adjust.addActionListener(e -> correction());
         tabs.addChangeListener(e -> {
@@ -137,30 +155,7 @@ final class FarmingProfitPanel extends PluginPanel
         component.setMaximumSize(new Dimension(Integer.MAX_VALUE, component.getPreferredSize().height));
         return component;
     }
-    private static JButton button(String label)
-    {
-        JButton button = new JButton(label)
-        {
-            @Override protected void paintComponent(java.awt.Graphics graphics)
-            {
-                super.paintComponent(graphics);
-                if (isFocusOwner())
-                {
-                    graphics.setColor(GOLD);
-                    graphics.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                }
-            }
-        };
-        button.setFont(BODY); button.setFocusPainted(false);
-        button.setOpaque(true); button.setContentAreaFilled(true);
-        button.setBackground(new Color(32, 32, 32));
-        button.setRolloverEnabled(true);
-        button.getModel().addChangeListener(e -> {
-            boolean hover = button.isEnabled() && button.getModel().isRollover();
-            button.setBackground(hover ? new Color(49, 49, 45) : new Color(32, 32, 32));
-        });
-        button.setBorder(new EmptyBorder(8, 8, 8, 8)); return button;
-    }
+    private static JButton button(String label) { return SidebarStyle.button(label); }
     /** Small vector marks use the button foreground and scale with Swing's graphics. */
     private enum RunActionIcon implements Icon
     {
@@ -272,14 +267,25 @@ final class FarmingProfitPanel extends PluginPanel
 
     void render(FarmingProfitPlugin.Data data, String message, boolean ready, long generation)
     {
-        if (accountGeneration != generation) { closeLedgers(); }
+        if (accountGeneration != generation) { closeLedgers(); if (editingRecipes) { closeRecipeEditor(); } }
+        lastData = data; lastMessage = message;
+        boolean preferencesChanged = false;
+        if (plugin != null)
+        {
+            HerbloreEstimate.Choices next = plugin.herbChoices();
+            preferencesChanged = !next.equals(herbChoices) || xpView != plugin.herbloreView();
+            herbChoices = next; xpView = plugin.herbloreView();
+        }
+        help.setText(xpView ? "How XP is estimated" : "How profit is calculated");
+        help.setToolTipText(xpView ? "Recipe choices, cleaning XP and assumptions" : "Harvest value, supply costs and estimates");
         accountGeneration = generation;
         current.removeAll();
         this.ready = ready; active = data.active != null;
         activeId = active ? data.active.id : null; paused = active && data.active.paused;
-        String concise = message.startsWith("Saved locally") ? "Saved locally | GE estimates" : message;
+        String concise = message.startsWith("Saved locally") ? (xpView ? "Saved locally | Potential XP" : "Saved locally | GE estimates") : message;
         setText(status, concise); status.setToolTipText(message);
         status.setVisible(ready && (active || !message.startsWith("Saved locally")));
+        if (ready) { current.add(viewSelector()); current.add(Box.createVerticalStrut(12)); }
         if (data.active == null)
         {
             JLabel illustration = new JLabel(BrandAssets.HARVEST, SwingConstants.CENTER);
@@ -289,16 +295,23 @@ final class FarmingProfitPanel extends PluginPanel
             title.setFont(BODY.deriveFont(Font.BOLD, 13)); current.add(fit(title));
             JLabel hint = centeredText(ready ? "Harvest or plant a patch to start tracking automatically." : message);
             hint.setForeground(MUTED); current.add(hint);
+            if (ready && xpView) { current.add(fit(recipeButton())); }
         }
         else { summary(current, data.active); }
-        if (renderedHistory != data.history || historyReady != ready || !message.equals(historyMessage))
+        if (renderedHistory != data.history || historyReady != ready || !message.equals(historyMessage)
+            || preferencesChanged || !java.time.LocalDate.now().equals(historyDay))
         {
             if (renderedHistory != data.history)
             {
                 if (renderedHistory == null || renderedHistory.isEmpty() || data.history.isEmpty()
                     || !renderedHistory.get(0).id.equals(data.history.get(0).id)) { historyPage = 0; }
-                historyProfit = data.history.stream().mapToLong(FarmRun::profit).sum();
             }
+            if (renderedHistory != data.history || preferencesChanged)
+            {
+                historyXp.clear();
+                if (xpView) { for (FarmRun run : data.history) { historyXp.put(run.id, new HerbloreEstimate(run, herbChoices)); } }
+            }
+            historyDay = java.time.LocalDate.now();
             renderedHistory = data.history; historyReady = ready; historyMessage = message;
             renderHistory();
         }
@@ -312,40 +325,72 @@ final class FarmingProfitPanel extends PluginPanel
     private void renderHistory()
     {
         history.removeAll();
-        if (renderedHistory.isEmpty())
+        if (historyReady) { history.add(viewSelector()); history.add(Box.createVerticalStrut(12)); }
+        java.util.List<FarmRun> visible = new java.util.ArrayList<>();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (!renderedHistory.isEmpty())
         {
-            JLabel title = text(historyReady ? "No completed runs yet" : "Waiting for your account"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
-            JLabel hint = text(historyReady ? "Finish a run to see its harvest, costs and profit here." : historyMessage); hint.setForeground(MUTED); history.add(hint);
+            JPanel ranges = new JPanel(new GridLayout(1, 4, 0, 0)); ranges.setOpaque(false);
+            for (HerbloreEstimate.Period value : HerbloreEstimate.Period.values())
+            {
+                JButton range = button(value.label); SidebarStyle.selected(range, period == value);
+                range.getAccessibleContext().setAccessibleName("History period " + value.label);
+                range.setToolTipText(value == HerbloreEstimate.Period.WEEK ? "This calendar week, starting Monday" : value == HerbloreEstimate.Period.MONTH ? "This calendar month" : value.label);
+                range.addActionListener(e -> { period = value; historyPage = 0; renderHistory(); }); ranges.add(range);
+            }
+            history.add(fit(ranges)); history.add(Box.createVerticalStrut(12));
+        }
+        for (FarmRun run : renderedHistory)
+        { if (period.includes(run, today, ZoneId.systemDefault())) { visible.add(run); } }
+        if (visible.isEmpty())
+        {
+            JLabel title = text(historyReady ? (renderedHistory.isEmpty() ? "No completed runs yet" : "No runs in this period") : "Waiting for your account"); title.setFont(BODY.deriveFont(Font.BOLD, 13)); history.add(fit(title));
+            JLabel hint = text(historyReady ? "Finish a run to see it here, or choose another period." : historyMessage); hint.setForeground(MUTED); history.add(hint);
         }
         else
         {
-            row(history, "Estimated total", historyProfit);
-            history.add(text(renderedHistory.size() + " saved runs"));
-            historyPage = Math.min(historyPage, (renderedHistory.size() - 1) / HISTORY_PAGE_SIZE);
+            long value = xpView ? visible.stream().mapToLong(r -> historyXp.get(r.id).totalTenths()).sum()
+                : visible.stream().mapToLong(FarmRun::profit).sum();
+            JLabel label = text(xpView ? "Potential Herblore XP" : "Estimated profit"); history.add(label);
+            JLabel total = new JLabel(xpView ? HerbloreEstimate.format(value) : numbers.format(value) + " gp");
+            total.setFont(BODY.deriveFont(Font.BOLD, 23)); total.setForeground(value < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : GREEN);
+            history.add(fit(total)); history.add(Box.createVerticalStrut(6));
+            history.add(text(visible.size() + " saved runs" + (xpView ? " · " + numbers.format(visible.stream().mapToLong(r -> historyXp.get(r.id).quantity).sum()) + " herbs" : "")));
+            historyPage = Math.min(historyPage, (visible.size() - 1) / HISTORY_PAGE_SIZE);
             int first = historyPage * HISTORY_PAGE_SIZE;
-            int end = Math.min(first + HISTORY_PAGE_SIZE, renderedHistory.size());
+            int end = Math.min(first + HISTORY_PAGE_SIZE, visible.size());
+            Map<java.time.LocalDate, Long> dayTotals = new LinkedHashMap<>();
+            for (FarmRun saved : visible)
+            {
+                java.time.LocalDate day = Instant.ofEpochMilli(saved.startedAt).atZone(ZoneId.systemDefault()).toLocalDate();
+                dayTotals.merge(day, xpView ? historyXp.get(saved.id).totalTenths() : saved.profit(), Long::sum);
+            }
             java.time.LocalDate previousDay = null;
-            java.time.LocalDate today = java.time.LocalDate.now();
-            for (FarmRun run : renderedHistory.subList(first, end))
+            for (FarmRun run : visible.subList(first, end))
             {
                 java.time.ZonedDateTime started = Instant.ofEpochMilli(run.startedAt).atZone(ZoneId.systemDefault());
                 java.time.LocalDate day = started.toLocalDate();
                 if (!day.equals(previousDay))
                 {
                     String date = day.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
-                    String name = day.equals(today) ? "Today · " + date
-                        : day.equals(today.minusDays(1)) ? "Yesterday · " + date : date;
-                    JLabel heading = text(name); heading.setForeground(GOLD);
+                    String name = day.equals(today) ? "Today" : day.equals(today.minusDays(1)) ? "Yesterday" : day.format(DateTimeFormatter.ofPattern("MMM d, yyyy"));
+                    JPanel group = new JPanel(new BorderLayout(4, 0)); group.setOpaque(false);
+                    JLabel heading = new JLabel(name); heading.setForeground(GOLD); heading.setToolTipText(date);
                     heading.setFont(BODY.deriveFont(Font.BOLD, 11f));
-                    history.add(Box.createVerticalStrut(12)); history.add(heading); previousDay = day;
+                    JLabel amount = new JLabel(xpView ? HerbloreEstimate.format(dayTotals.get(day)) : numbers.format(dayTotals.get(day)) + " gp");
+                    amount.setForeground(GOLD); amount.setFont(BODY.deriveFont(Font.BOLD, 11f));
+                    amount.setToolTipText("Total for " + date + ", including runs on other pages");
+                    group.add(heading, BorderLayout.WEST); group.add(amount, BorderLayout.EAST);
+                    history.add(Box.createVerticalStrut(12)); history.add(fit(group)); history.add(Box.createVerticalStrut(6)); previousDay = day;
                 }
                 RunLocations locations = new RunLocations(run);
                 JButton entry = button(""); entry.setLayout(new BorderLayout(0, 5));
+                entry.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, SidebarStyle.LINE), new EmptyBorder(8, 5, 8, 5)));
                 JPanel top = new JPanel(new BorderLayout(4, 0)); top.setOpaque(false);
                 JLabel time = new JLabel(started.format(DateTimeFormatter.ofPattern("HH:mm")));
                 time.setFont(BODY.deriveFont(Font.BOLD));
-                JLabel profit = new JLabel((run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
-                profit.setFont(BODY.deriveFont(Font.BOLD)); profit.setForeground(run.profit() < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : GREEN);
+                JLabel profit = new JLabel(xpView ? HerbloreEstimate.format(historyXp.get(run.id).totalTenths()) : (run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
+                profit.setFont(BODY.deriveFont(Font.BOLD)); profit.setForeground((xpView ? historyXp.get(run.id).totalTenths() : run.profit()) < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : GREEN);
                 top.add(time, BorderLayout.WEST); top.add(profit, BorderLayout.EAST);
                 JLabel detail = text(RunLocations.elapsed(run) + " · " + locations.tiles.size() + " patch tiles");
                 detail.setForeground(MUTED);
@@ -353,7 +398,7 @@ final class FarmingProfitPanel extends PluginPanel
                 JPanel lower = column(); lower.setOpaque(false); lower.add(detail); lower.add(places);
                 entry.add(top, BorderLayout.NORTH); entry.add(lower, BorderLayout.CENTER);
                 entry.getAccessibleContext().setAccessibleName("Open run " + DATE.format(Instant.ofEpochMilli(run.startedAt))
-                    + ", estimated profit " + numbers.format(run.profit()) + " gp");
+                    + (xpView ? ", potential " + HerbloreEstimate.format(historyXp.get(run.id).totalTenths()) : ", estimated profit " + numbers.format(run.profit()) + " gp"));
                 entry.setToolTipText("Open run breakdown and locations");
                 entry.addActionListener(e -> showLedger(run));
                 history.add(fit(entry)); history.add(Box.createVerticalStrut(4));
@@ -363,13 +408,19 @@ final class FarmingProfitPanel extends PluginPanel
                 JButton newer = button("Newer runs");
                 newer.addActionListener(e -> { historyPage--; renderHistory(); }); history.add(fit(newer));
             }
-            if (renderedHistory.size() > HISTORY_PAGE_SIZE)
+            if (visible.size() > HISTORY_PAGE_SIZE)
             {
-                history.add(text("Showing " + (first + 1) + "–" + end + " of " + renderedHistory.size() + " runs"));
-                JButton older = button("Load older runs"); older.setEnabled(end < renderedHistory.size());
+                history.add(text("Showing " + (first + 1) + "–" + end + " of " + visible.size() + " runs"));
+                JButton older = button("Load older runs"); older.setEnabled(end < visible.size());
                 older.addActionListener(e -> { historyPage++; renderHistory(); });
                 history.add(fit(older));
             }
+        }
+        if (xpView && historyReady)
+        {
+            SidebarStyle.divider(history);
+            history.add(SidebarStyle.copy("Based on your current potion choices. Completed runs only."));
+            history.add(fit(recipeButton()));
         }
         for (java.awt.Container parent = history; parent != null; parent = parent.getParent())
         { parent.invalidate(); }
@@ -384,6 +435,11 @@ final class FarmingProfitPanel extends PluginPanel
             notice.setForeground(GOLD); parent.add(notice);
         }
         JLabel since = text("Started " + DATE.format(Instant.ofEpochMilli(run.startedAt))); since.setForeground(MUTED); parent.add(since);
+        if (xpView)
+        {
+            xpSummary(parent, run);
+            return;
+        }
         parent.add(text("Estimated profit"));
         JLabel total = new JLabel((run.profit() > 0 ? "+" : "") + numbers.format(run.profit()) + " gp");
         total.setForeground(run.profit() >= 0 ? GREEN : ColorScheme.PROGRESS_ERROR_COLOR);
@@ -391,9 +447,13 @@ final class FarmingProfitPanel extends PluginPanel
         row(parent, "Harvest", run.harvestValue()); row(parent, "Supplies", run.costs());
         JLabel xp = text(numbers.format(run.farmingXp) + " Farming XP"); xp.setForeground(MUTED); parent.add(xp);
         parent.add(Box.createVerticalStrut(8));
-        Map<String, Integer> harvest = new LinkedHashMap<>();
-        run.entries.stream().filter(e -> !e.cost).forEach(e -> harvest.merge(e.name, e.quantity, Integer::sum));
-        harvest.forEach((name, quantity) -> parent.add(text(quantity + " x " + name)));
+        Map<Integer, Long> harvest = new LinkedHashMap<>();
+        Map<Integer, String> names = new LinkedHashMap<>();
+        run.entries.stream().filter(e -> !e.cost).forEach(e -> { harvest.merge(e.itemId, (long) e.quantity, Long::sum); names.put(e.itemId, e.name); });
+        harvest.forEach((id, quantity) -> {
+            if (quantity == 0) { return; }
+            JLabel item = new JLabel("<html><div style='width:116px'>" + escape(numbers.format(quantity) + " × " + names.get(id)) + "</div></html>"); item.setFont(BODY); item.setBorder(new EmptyBorder(4, 0, 6, 0)); itemIcon(item, id); parent.add(fit(item));
+        });
         JButton detail = button("View breakdown"); detail.addActionListener(e -> showLedger(run)); parent.add(fit(detail));
         if (!run.warnings.isEmpty())
         {
@@ -401,6 +461,105 @@ final class FarmingProfitPanel extends PluginPanel
             JButton review = button(run.warnings.size() + " item(s) to review"); review.setForeground(GOLD);
             review.addActionListener(e -> showLedger(run)); parent.add(fit(review));
         }
+    }
+
+    private JPanel viewSelector()
+    {
+        JPanel selector = new JPanel(new GridLayout(1, 2, 0, 0)); selector.setOpaque(false);
+        for (boolean xp : new boolean[]{false, true})
+        {
+            JButton choice = button(xp ? "Herblore XP" : "Profit (GP)"); SidebarStyle.selected(choice, xpView == xp);
+            choice.getAccessibleContext().setAccessibleDescription(xpView == xp ? "Selected view" : "Switch view");
+            choice.addActionListener(e -> selectXpView(xp)); selector.add(choice);
+        }
+        return fit(selector);
+    }
+    void selectXpView(boolean xp)
+    {
+        xpView = xp; if (plugin != null) { plugin.updateHerbloreView(xp); }
+        rerenderPreferences();
+    }
+    private void rerenderPreferences()
+    {
+        renderedHistory = null;
+        if (lastData != null) { render(lastData, lastMessage, ready, accountGeneration); }
+    }
+    private void itemIcon(JLabel label, int id)
+    { icons.accept(label, id); }
+    private JButton recipeButton()
+    {
+        JButton edit = button("Edit potion choices"); edit.setForeground(GOLD);
+        edit.setHorizontalAlignment(SwingConstants.LEFT); edit.setFont(BODY.deriveFont(11f));
+        edit.setBorder(new EmptyBorder(6, 0, 6, 0)); edit.setContentAreaFilled(false); edit.setOpaque(false);
+        edit.addActionListener(e -> openRecipeEditor()); return edit;
+    }
+    void openRecipeEditor()
+    {
+        editingRecipes = true;
+        remove(normalContent);
+        PotionChoicesPanel editor = new PotionChoicesPanel(herbChoices, this::itemIcon, choices -> {
+            herbChoices = choices; if (plugin != null) { plugin.updateHerbChoices(choices); }
+            closeRecipeEditor(); rerenderPreferences();
+        }, this::closeRecipeEditor);
+        add(editor, BorderLayout.NORTH); revalidate(); repaint();
+    }
+    private void closeRecipeEditor()
+    {
+        editingRecipes = false; removeAll(); add(normalContent, BorderLayout.NORTH); revalidate(); repaint();
+    }
+    private void xpSummary(JPanel parent, FarmRun run)
+    {
+        HerbloreEstimate estimate = new HerbloreEstimate(run, herbChoices);
+        parent.add(text("Potential Herblore XP"));
+        JLabel total = new JLabel(HerbloreEstimate.format(estimate.totalTenths()));
+        total.setFont(BODY.deriveFont(Font.BOLD, 24)); total.setForeground(estimate.totalTenths() < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : GREEN);
+        parent.add(fit(total)); parent.add(Box.createVerticalStrut(10));
+        appendXpRows(parent, estimate);
+        parent.add(fit(recipeButton())); parent.add(Box.createVerticalStrut(10));
+        JButton detail = button("View breakdown"); detail.addActionListener(e -> showLedger(run)); parent.add(fit(detail));
+        if (!run.warnings.isEmpty())
+        {
+            parent.add(Box.createVerticalStrut(6));
+            JButton review = button(run.warnings.size() + " item(s) to review"); review.setForeground(GOLD);
+            review.addActionListener(e -> showLedger(run)); parent.add(fit(review));
+        }
+    }
+    private void appendXpRows(JPanel parent, HerbloreEstimate estimate)
+    {
+        xpRow(parent, "Potion making", estimate.potionTenths);
+        xpRow(parent, "Herb cleaning", estimate.cleaningTenths);
+        SidebarStyle.divider(parent);
+        if (estimate.rows.isEmpty()) { parent.add(SidebarStyle.copy("No supported herbs recorded yet. Other crops still count in Profit (GP).")); }
+        for (HerbloreEstimate.Row row : estimate.rows)
+        {
+            JPanel item = column();
+            JLabel name = new JLabel(numbers.format(row.quantity) + " × " + row.herb.name); name.setFont(BODY.deriveFont(Font.BOLD));
+            itemIcon(name, row.herb.id); name.setIconTextGap(4); item.add(fit(name));
+            JPanel detail = new JPanel(new BorderLayout(4, 0)); detail.setOpaque(false);
+            JLabel potion = new JLabel(row.recipe.name); potion.setFont(BODY.deriveFont(10f)); potion.setForeground(MUTED);
+            itemIcon(potion, row.recipe.id); potion.setIconTextGap(4);
+            JLabel value = new JLabel(HerbloreEstimate.format(row.totalTenths()), SwingConstants.RIGHT);
+            value.setFont(BODY.deriveFont(Font.BOLD, 11f));
+            // Keep long recipes or large corrected counts from colliding at 225 px.
+            if (potion.getPreferredSize().width + value.getPreferredSize().width + 4 > 195)
+            { item.add(fit(potion)); item.add(fit(value)); }
+            else { detail.add(potion, BorderLayout.CENTER); detail.add(value, BorderLayout.EAST); item.add(fit(detail)); }
+            parent.add(item); SidebarStyle.divider(parent);
+        }
+    }
+    private void xpRow(JPanel parent, String label, long tenths)
+    {
+        JPanel row = new JPanel(new BorderLayout(4, 0)); row.setOpaque(false);
+        JLabel name = new JLabel(label); name.setFont(BODY); name.setForeground(MUTED);
+        JLabel amount = new JLabel(HerbloreEstimate.format(tenths)); amount.setFont(BODY);
+        row.add(name, BorderLayout.WEST); row.add(amount, BorderLayout.EAST);
+        row.setBorder(new EmptyBorder(4, 0, 4, 0)); parent.add(fit(row));
+    }
+    private void showXpHelp()
+    {
+        JTextArea help = new JTextArea("Potential Herblore XP estimates what you could earn by processing the herbs recorded in your farming runs. It is not actual XP earned or a bank scan.\n\nEach herb uses your selected recipe, plus cleaning XP when enabled. All secondaries are assumed available. Base XP only: no outfit bonuses, extra doses, subsequent upgrades or Mastering Mixology. Other crops and costs do not add XP.\n\nChanging recipes recalculates past runs. Negative harvest corrections subtract XP. History includes completed runs only, grouped by their start date in your local timezone. Week starts Monday; Month is the calendar month.\n\nReview notes still apply to inferred herb counts. Switch to Profit (GP) for supply and travel costs.", 13, 34);
+        help.setFont(BODY); help.setLineWrap(true); help.setWrapStyleWord(true); help.setEditable(false); help.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this, new JScrollPane(help), "About potential Herblore XP", JOptionPane.PLAIN_MESSAGE);
     }
 
     private void deleteCurrentRun()
@@ -446,7 +605,17 @@ final class FarmingProfitPanel extends PluginPanel
             @Override public void windowClosed(java.awt.event.WindowEvent event) { ledgerDialogs.remove(dialog); }
         });
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-        dialog.add(new LedgerPanel(run), BorderLayout.CENTER);
+        if (xpView)
+        {
+            JPanel body = column(); body.setBorder(new EmptyBorder(14, 14, 14, 14));
+            body.add(text("Potential Herblore XP"));
+            appendXpRows(body, new HerbloreEstimate(run, herbChoices));
+            body.add(SidebarStyle.copy("Current recipe choices · assumes all secondaries. Estimates, not XP earned."));
+            JTabbedPane detailViews = new JTabbedPane(); detailViews.setFont(BODY);
+            detailViews.addTab("Herblore XP", new JScrollPane(body)); detailViews.addTab("GP ledger", new LedgerPanel(run));
+            dialog.add(detailViews, BorderLayout.CENTER);
+        }
+        else { dialog.add(new LedgerPanel(run), BorderLayout.CENTER); }
         JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 12, 8));
         buttons.setBackground(ColorScheme.DARK_GRAY_COLOR);
         if (renderedHistory != null && renderedHistory.stream().anyMatch(saved -> saved.id.equals(run.id)))

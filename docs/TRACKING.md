@@ -38,6 +38,18 @@ Harvesting an established dragonfruit tree records its fruit without inventing a
 
 GE values are saved per entry. They are estimates before sale tax, not actual sale proceeds. Unpriced items use zero with a review warning. Woodcutting logs, combat drops and non-farming income are excluded.
 
+## Potential Herblore XP
+
+The optional **Herblore XP** view sums recorded harvest quantities by herb, then applies the selected recipe's base XP and optional herb-cleaning XP. It supports the 15 normal farmable herbs, including huasca; goutweed and non-herb crops do not contribute. Recipes include common single-herb potions and herb tar. This is a curated selection, not every possible processing method.
+
+- Negative harvest corrections subtract the matching herb's XP; zero-net herbs disappear. Costs, secondaries and GP-only adjustments never add XP.
+- All secondaries (including premade potion ingredients where applicable) are assumed available. No bank scan, level check, actual Herblore XP tracking, outfit/equipment bonuses, downstream recipe chains, Degrime or Mastering Mixology estimates.
+- **Done** saves recipe and cleaning choices in RuneLite configuration. **Back** cancels. Settings apply to the RuneLite configuration profile; run data remains separated by RuneScape profile.
+- Current recipe choices recalculate old history; no XP values are written into saved runs and there is no data migration. Existing GP price snapshots remain untouched.
+- Today / Week / Month / All filter completed runs using their local start date, not completion date. Week starts Monday, Month is the calendar month. Daily totals include runs beyond the visible 25-row page.
+- The XP breakdown retains a GP ledger tab for original entries, locations and review notes. Inferred sack counts have the same uncertainty in both views.
+- Item icons come from RuneLite's cached `ItemManager` sprites, including asynchronous repaint when ready. There are no new runtime HTTP requests, timers or per-frame handlers. Completed-run XP is calculated when history or recipe choices change, not for each harvest update.
+
 ## Limitations
 
 - Automatic travel costs cover supported icy/stony basalt, teleport tablets and loose inventory scrolls consumed during an active, unpaused run. Start manually before the first teleport to include it. Travel tracking can be disabled in Settings; banking or dropping items alone does not count.
