@@ -1,6 +1,8 @@
 # Release readiness
 
-Code hardening completed locally on 2026-10-21. This is not a declaration of production readiness or Plugin Hub approval. The user approved the ledger UI in the development client; counting and lifecycle acceptance remain incomplete.
+This is the original code-hardening and validation record from 2026-10-21. The plugin has since been accepted into the Plugin Hub, and the UI/history update was merged on 2026-10-29.
+
+**Current work:** Herblore XP is in [draft PR #2](https://github.com/bshelton/farming-profit/pull/2), awaiting live feedback. See [the latest test record](TESTING.md#pr-2-review-2026-10-30) for current checks. Older pending rows below describe coverage limits, not a claim that the published plugin is unapproved.
 
 ## Code changes
 
@@ -29,7 +31,7 @@ The performance task generates synthetic data under `build/performance-fixture`,
 
 These are single-process synthetic timings, not a rigorous benchmark or live FPS/CPU claim. Full-file disk writes still scale with history size; save/UI queues coalesce pending updates. CI outcomes for the final commit must be checked separately from local success.
 
-The final local clean check passed 85 tests, release-JAR checks and headless previews. No live game actions were automated.
+The original 2026-10-21 local clean check passed 85 tests, release-JAR checks and headless previews. No live game actions were automated.
 
 ## Remaining release gates
 

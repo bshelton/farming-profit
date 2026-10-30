@@ -67,6 +67,7 @@ final class FarmingProfitPanel extends PluginPanel
     private int historyPage;
 
     private final java.util.function.BiConsumer<JLabel, Integer> icons;
+    private final java.util.function.Supplier<java.time.LocalDate> today;
     private boolean xpView;
     private HerbloreEstimate.Choices herbChoices = new HerbloreEstimate.Choices(true, "");
     private HerbloreEstimate.Period period = HerbloreEstimate.Period.ALL;
@@ -83,9 +84,14 @@ final class FarmingProfitPanel extends PluginPanel
         this(plugin, (label, id) -> { if (plugin != null) { plugin.itemIcon(label, id); } });
     }
     FarmingProfitPanel(FarmingProfitPlugin plugin, java.util.function.BiConsumer<JLabel, Integer> icons)
+    { this(plugin, icons, java.time.LocalDate::now); }
+
+    FarmingProfitPanel(FarmingProfitPlugin plugin, java.util.function.BiConsumer<JLabel, Integer> icons,
+        java.util.function.Supplier<java.time.LocalDate> today)
     {
         this.plugin = plugin;
         this.icons = icons;
+        this.today = today;
         setLayout(new BorderLayout());
         setBorder(new EmptyBorder(12, 10, 12, 10));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -131,6 +137,8 @@ final class FarmingProfitPanel extends PluginPanel
         delete.addActionListener(e -> deleteCurrentRun());
         adjust.addActionListener(e -> correction());
         tabs.addChangeListener(e -> {
+            if (tabs.getSelectedIndex() == 1 && renderedHistory != null && !today.get().equals(historyDay))
+            { historyDay = today.get(); renderHistory(); }
             updateActions();
             for (java.awt.Container parent = tabs; parent != null; parent = parent.getParent())
             { parent.invalidate(); }
@@ -282,9 +290,9 @@ final class FarmingProfitPanel extends PluginPanel
         current.removeAll();
         this.ready = ready; active = data.active != null;
         activeId = active ? data.active.id : null; paused = active && data.active.paused;
-        String concise = message.startsWith("Saved locally") ? (xpView ? "Saved locally | Potential XP" : "Saved locally | GE estimates") : message;
-        setText(status, concise); status.setToolTipText(message);
-        status.setVisible(ready && (active || !message.startsWith("Saved locally")));
+        // Routine save/estimate copy repeats the heading and help. Keep actionable failures visible.
+        setText(status, message); status.setToolTipText(message);
+        status.setVisible(ready && !message.startsWith("Saved locally"));
         if (ready) { current.add(viewSelector()); current.add(Box.createVerticalStrut(12)); }
         if (data.active == null)
         {
@@ -299,7 +307,7 @@ final class FarmingProfitPanel extends PluginPanel
         }
         else { summary(current, data.active); }
         if (renderedHistory != data.history || historyReady != ready || !message.equals(historyMessage)
-            || preferencesChanged || !java.time.LocalDate.now().equals(historyDay))
+            || preferencesChanged || !today.get().equals(historyDay))
         {
             if (renderedHistory != data.history)
             {
@@ -311,7 +319,7 @@ final class FarmingProfitPanel extends PluginPanel
                 historyXp.clear();
                 if (xpView) { for (FarmRun run : data.history) { historyXp.put(run.id, new HerbloreEstimate(run, herbChoices)); } }
             }
-            historyDay = java.time.LocalDate.now();
+            historyDay = today.get();
             renderedHistory = data.history; historyReady = ready; historyMessage = message;
             renderHistory();
         }
@@ -327,7 +335,7 @@ final class FarmingProfitPanel extends PluginPanel
         history.removeAll();
         if (historyReady) { history.add(viewSelector()); history.add(Box.createVerticalStrut(12)); }
         java.util.List<FarmRun> visible = new java.util.ArrayList<>();
-        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate today = this.today.get();
         if (!renderedHistory.isEmpty())
         {
             JPanel ranges = new JPanel(new GridLayout(1, 4, 0, 0)); ranges.setOpaque(false);
@@ -526,7 +534,7 @@ final class FarmingProfitPanel extends PluginPanel
     }
     private void appendXpRows(JPanel parent, HerbloreEstimate estimate)
     {
-        xpRow(parent, "Potion making", estimate.potionTenths);
+        xpRow(parent, "Recipe XP", estimate.potionTenths);
         xpRow(parent, "Herb cleaning", estimate.cleaningTenths);
         SidebarStyle.divider(parent);
         if (estimate.rows.isEmpty()) { parent.add(SidebarStyle.copy("No supported herbs recorded yet. Other crops still count in Profit (GP).")); }
@@ -610,7 +618,7 @@ final class FarmingProfitPanel extends PluginPanel
             JPanel body = column(); body.setBorder(new EmptyBorder(14, 14, 14, 14));
             body.add(text("Potential Herblore XP"));
             appendXpRows(body, new HerbloreEstimate(run, herbChoices));
-            body.add(SidebarStyle.copy("Current recipe choices · assumes all secondaries. Estimates, not XP earned."));
+            body.add(SidebarStyle.copy("Recipes when opened · assumes all secondaries. Estimates, not XP earned."));
             JTabbedPane detailViews = new JTabbedPane(); detailViews.setFont(BODY);
             detailViews.addTab("Herblore XP", new JScrollPane(body)); detailViews.addTab("GP ledger", new LedgerPanel(run));
             dialog.add(detailViews, BorderLayout.CENTER);

@@ -162,7 +162,7 @@ Sack counting, repeat dragonfruit harvest, costs, account separation and event-o
 
 ## Saved-run deletion (2026-10-28, awaiting live validation)
 
-The user confirmed the completed full run appears correctly in History. Each History row now has a Delete button. Confirmation identifies the date and estimated profit, defaults to Keep run, and removes only that saved run. The history total and pagination refresh; the active run remains untouched. Account-generation checks reject confirmations from an earlier login/profile. Deletion uses the existing asynchronous atomic save and save-failure status.
+The user confirmed the completed full run appears correctly in History. Open a History row, then select **Delete run** in its breakdown. Confirmation identifies the date and estimated profit, defaults to Keep run, and removes only that saved run. The history total and pagination refresh; the active run remains untouched. Account-generation checks reject confirmations from an earlier login/profile. Deletion uses the existing asynchronous atomic save and save-failure status.
 
 Automated tests verify stale-session rejection, exact run selection, snapshot invalidation, persistence after reload, preservation of other runs and the active run, and deletion down to an empty paginated history. A standalone Swing preview verifies the narrow History layout. Live test with a disposable completed run: cancel once, then delete; confirm the total updates and the deletion remains after restart.
 
@@ -171,7 +171,7 @@ Automated tests verify stale-session rejection, exact run selection, snapshot in
 
 Implemented an optional potential Herblore XP view using existing harvest entries, per-herb recipe choices, optional cleaning XP, and completed-run Today/Week/Month/All filters. Current recipe choices recalculate history without modifying GP entries. RuneLite item sprites replace mock illustrations; shared native buttons have thin borders, gold selected states and event-driven hover/focus feedback.
 
-Automated checks: 100 tests pass, Java 11 release-jar validation passes, and native 225px Swing previews render current GP/XP views, history, collapsed/expanded recipe choices, paused, empty and logged-out states. New tests cover fractional XP, multiple herbs, non-herb/cost exclusion, signed corrections, invalid config fallback, recipe recomputation, cancel/save controls, item IDs, account-switch editor cleanup, completed-only totals and local calendar boundaries. Synthetic storage/snapshot performance probe passes; this is not an FPS claim.
+Automated checks at this stage (2026-10-29): 100 tests passed, Java 11 release-jar validation passes, and native 225px Swing previews render current GP/XP views, history, collapsed/expanded recipe choices, paused, empty and logged-out states. New tests cover fractional XP, multiple herbs, non-herb/cost exclusion, signed corrections, invalid config fallback, recipe recomputation, cancel/save controls, item IDs, account-switch editor cleanup, completed-only totals and local calendar boundaries. Synthetic storage/snapshot performance probe passes; this is not an FPS claim.
 
 Preview-only sprites were sourced from `https://static.runelite.net/cache/item/icon/{itemId}.png` into ignored `build/preview/item-icons/`; none are bundled in the plugin. `./gradlew preview` uses these local files when present. Runtime sprites come from `ItemManager`. Recipe XP was checked against RuneLite's `HerbloreAction` calculator and the OSRS Wiki Herblore experience table; this UI intentionally does not implement all multi-stage methods.
 
@@ -183,3 +183,14 @@ Live test after launching the development client:
 5. Expand More herbs, use the keyboard to select a recipe, and check scrolling at the normal sidebar width and any UI scaling you use. Account switching must close an open recipe editor and replace the displayed history.
 
 For Jagex Accounts, use the [development-client login instructions](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts).
+
+
+## PR #2 review (2026-10-30)
+
+Reviewed estimate arithmetic, recipe settings, GP-ledger isolation, history caching and filters, sprite loading and documentation. All 38 recipe rates and 15 cleaning rates match RuneLite's Herblore calculator. A test-only comparison now checks every catalog rate against that independent upstream calculator. Herb-to-recipe mappings were cross-checked with the OSRS Wiki experience table; tar XP is per herb/batch, not per unit of tar.
+
+Fixed stale Today/Week/Month results when reopening History after local midnight. The refresh is driven by tab selection, with no timer or game-thread work. Added a midnight regression test.
+
+Removed the routine “Saved locally” footer in both views; actual save errors stay visible. Added a visibility regression test and refreshed the native screenshots. Renamed the processing subtotal to “Recipe XP” so tar choices are described accurately. The XP breakdown now states that its recipe values are a snapshot when opened.
+
+Validation: 104 tests and Java 11 packaging checks pass. In-game validation remains pending as described above. UI previews use synthetic data, not evidence of real event delivery.

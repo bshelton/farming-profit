@@ -65,6 +65,35 @@ public class HerblorePanelTest
             assertTrue(labels(panel).contains("2,850 XP"));
         });
     }
+    @Test public void reopeningHistoryAfterMidnightRefreshesPeriod() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() -> {
+            java.util.concurrent.atomic.AtomicReference<java.time.LocalDate> day =
+                new java.util.concurrent.atomic.AtomicReference<>(java.time.LocalDate.of(2026, 10, 30));
+            FarmingProfitPlugin.Data data = new FarmingProfitPlugin.Data();
+            FarmRun run = new FarmRun(day.get().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
+            run.add(ItemID.UNIDENTIFIED_RANARR, "Ranarr", 10, 1, false, "Patch", "Harvest", run.startedAt);
+            data.history.add(run);
+            FarmingProfitPanel panel = new FarmingProfitPanel(null, (label, id) -> {}, day::get);
+            panel.render(data, "Saved locally", true); panel.selectXpView(true);
+            JTabbedPane tabs = descendants(panel, JTabbedPane.class).get(0);
+            tabs.setSelectedIndex(1); click(panel, "Today"); assertEquals(1, runButtons(panel));
+            tabs.setSelectedIndex(0); day.set(day.get().plusDays(1)); tabs.setSelectedIndex(1);
+            assertEquals(0, runButtons(panel)); click(panel, "All"); assertEquals(1, runButtons(panel));
+            assertTrue(labels(panel).contains("Yesterday"));
+        });
+    }
+    @Test public void routineFooterIsHiddenButSaveFailuresRemainVisible() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() -> {
+            FarmingProfitPlugin.Data data = new FarmingProfitPlugin.Data(); data.active = new FarmRun(1);
+            FarmingProfitPanel panel = new FarmingProfitPanel(null); panel.render(data, "Saved locally | GE estimates", true);
+            panel.selectXpView(true);
+            assertFalse(descendants(panel, JLabel.class).stream().anyMatch(l -> l.isVisible() && l.getText() != null && l.getText().contains("Saved locally")));
+            panel.render(data, "Save failed — recent changes are only in memory.", true);
+            assertTrue(descendants(panel, JLabel.class).stream().anyMatch(l -> l.isVisible() && l.getText() != null && l.getText().contains("Save failed")));
+        });
+    }
     private static int runButtons(Container parent)
     { return (int) descendants(parent, JButton.class).stream().filter(b -> b.getAccessibleContext().getAccessibleName().startsWith("Open run ")).count(); }
     private static Set<String> labels(Container parent)
